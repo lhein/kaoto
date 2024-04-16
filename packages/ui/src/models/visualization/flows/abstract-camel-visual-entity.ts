@@ -2,7 +2,7 @@
 import { ProcessorDefinition, RouteDefinition } from '@kaoto-next/camel-catalog/types';
 import { SchemaService } from '../../../components/Form/schema.service';
 import { ROOT_PATH, getArrayProperty, getValue, isDefined, setValue } from '../../../utils';
-import { NodeIconResolver } from '../../../utils/node-icon-resolver';
+import { NodeIconResolver, NodeIconType } from '../../../utils/node-icon-resolver';
 import { DefinedComponent } from '../../camel-catalog-index';
 import { EntityType } from '../../camel/entities';
 import {
@@ -232,7 +232,7 @@ export abstract class AbstractCamelVisualEntity implements BaseVisualCamelEntity
       path: ROOT_PATH,
       entity: this,
       isGroup: true,
-      icon: NodeIconResolver.getIcon(this.type),
+      icon: NodeIconResolver.getIcon(this.type, NodeIconType.VisualEntity),
     });
 
     const fromNode = CamelStepsService.getVizNodeFromProcessor(

@@ -1,6 +1,6 @@
 import { FunctionComponent, PropsWithChildren } from 'react';
 import { CatalogKind } from '../../models';
-import { NodeIconResolver } from '../../utils/node-icon-resolver';
+import { NodeIconResolver, NodeIconType } from '../../utils/node-icon-resolver';
 import { ITile } from '../Catalog/Catalog.models';
 
 interface IconResolverProps {
@@ -20,10 +20,12 @@ export const IconResolver: FunctionComponent<PropsWithChildren<IconResolverProps
       );
     case CatalogKind.Processor:
     case CatalogKind.Component:
+      // eslint-disable-next-line no-case-declarations
+      const iconType = props.tile.type === CatalogKind.Processor ? NodeIconType.EIP : NodeIconType.Component;
       return (
         <img
           className={props.className}
-          src={NodeIconResolver.getIcon(props.tile.name)}
+          src={NodeIconResolver.getIcon(props.tile.name, iconType)}
           alt={`${props.tile.type} icon`}
         />
       );

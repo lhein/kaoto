@@ -1,7 +1,7 @@
 import { OnException, ProcessorDefinition } from '@kaoto-next/camel-catalog/types';
 import { getCamelRandomId } from '../../../camel-utils/camel-random-id';
 import { SchemaService } from '../../../components/Form/schema.service';
-import { getArrayProperty, getValue, isDefined, setValue } from '../../../utils';
+import { NodeIconResolver, NodeIconType, getArrayProperty, getValue, isDefined, setValue } from '../../../utils';
 import { DefinedComponent } from '../../camel-catalog-index';
 import { EntityType } from '../../camel/entities/base-entity';
 import {
@@ -243,6 +243,7 @@ export class CamelOnExceptionVisualEntity implements BaseVisualCamelEntity {
     );
     onExceptionGroupNode.data.entity = this;
     onExceptionGroupNode.data.isGroup = true;
+    onExceptionGroupNode.data.icon = NodeIconResolver.getIcon(this.type, NodeIconType.VisualEntity);
 
     return onExceptionGroupNode;
   }

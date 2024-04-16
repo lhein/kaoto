@@ -125,8 +125,14 @@ import { IKameletDefinition } from '../models/kamelets-catalog';
 import { CamelCatalogService } from '../models/visualization/flows/camel-catalog.service';
 import { EntityType } from '../models/camel/entities';
 
+export const enum NodeIconType {
+  Component,
+  EIP,
+  VisualEntity,
+}
+
 export class NodeIconResolver {
-  static getIcon(elementName: string | undefined): string {
+  static getIcon(elementName: string | undefined, type?: NodeIconType): string {
     if (elementName?.startsWith('kamelet:')) {
       const kameletDefinition = CamelCatalogService.getComponent(
         CatalogKind.Kamelet,
@@ -134,6 +140,17 @@ export class NodeIconResolver {
       ) as IKameletDefinition | undefined;
 
       return kameletDefinition?.metadata.annotations['camel.apache.org/kamelet.icon'] ?? this.getUnknownIcon();
+    }
+
+    /**
+     * Temporary fix for the missing icons
+     * TODO: Remove this once all usages are validated and the right types are set
+     */
+    switch (type) {
+      case NodeIconType.Component:
+        return this.getComponentIcon(elementName) ?? this.getDefaultCamelIcon();
+      case NodeIconType.EIP:
+        return this.getEIPIcon(elementName) ?? this.getDefaultCamelIcon();
     }
 
     let icon = this.getComponentIcon(elementName);
@@ -154,6 +171,7 @@ export class NodeIconResolver {
     if (elementName === '') {
       return this.getUnknownIcon();
     }
+
     return this.getDefaultCamelIcon();
   }
 

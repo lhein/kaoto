@@ -47,7 +47,7 @@ import { NodeContextMenuFn } from '../ContextMenu/NodeContextMenu';
 import { NODE_DRAG_TYPE } from '../customComponentUtils';
 import { AddStepIcon } from '../Edge/AddStepIcon';
 import { FloatingCircle } from '../FloatingCircle/FloatingCircle';
-import { TargetAnchor } from '../target-anchor';
+import { SourceAnchor, TargetAnchor } from '../target-anchor';
 import { checkNodeDropCompatibility, handleValidNodeDrop } from './CustomNodeUtils';
 
 type DefaultNodeProps = Parameters<typeof DefaultNode>[0];
@@ -95,8 +95,11 @@ const CustomNodeInner: FunctionComponent<CustomNodeProps> = observer(
     const canDragNode = vizNode?.canDragNode() ?? false;
 
     useAnchor((element: Node) => {
+      return new SourceAnchor(element);
+    }, AnchorEnd.source);
+    useAnchor((element: Node) => {
       return new TargetAnchor(element);
-    }, AnchorEnd.both);
+    }, AnchorEnd.target);
 
     const nodeDragSourceSpec: DragSourceSpec<
       DragObjectWithType,

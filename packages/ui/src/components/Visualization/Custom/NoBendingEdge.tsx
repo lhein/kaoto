@@ -3,10 +3,6 @@ import { BaseEdge, getTopCollapsedParent, Point } from '@patternfly/react-topolo
 import { LayoutType } from '../Canvas';
 
 export class NoBendpointsEdge extends BaseEdge {
-  getBendpoints(): Point[] {
-    return [];
-  }
-
   getStartPoint(): Point {
     if (this.getTarget() === this.getSource()) {
       const parent = getTopCollapsedParent(this.getSource());

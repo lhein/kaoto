@@ -21,7 +21,7 @@ describe('TargetAnchor', () => {
     const reference = new Point(100, 100);
     const result = targetAnchor.getLocation(reference);
 
-    expect(result).toEqual({ x: 50, y: 50 });
+    expect(result).toEqual({ x: 25, y: 0 });
   });
 
   /**

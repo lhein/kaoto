@@ -33,7 +33,7 @@ import { StepToolbar } from '../../Canvas/StepToolbar/StepToolbar';
 import { customGroupExpandedDropTargetSpec } from '../customComponentUtils';
 import { AddStepIcon } from '../Edge/AddStepIcon';
 import { FloatingCircle } from '../FloatingCircle/FloatingCircle';
-import { TargetAnchor } from '../target-anchor';
+import { SourceAnchor, TargetAnchor } from '../target-anchor';
 import { CustomGroupProps } from './Group.models';
 
 export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = observer(
@@ -65,8 +65,11 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
     const isHorizontal = element.getGraph().getLayout() === LayoutType.DagreHorizontal;
 
     useAnchor((element: Node) => {
+      return new SourceAnchor(element);
+    }, AnchorEnd.source);
+    useAnchor((element: Node) => {
       return new TargetAnchor(element);
-    }, AnchorEnd.both);
+    }, AnchorEnd.target);
 
     if (!vizNode) {
       return null;

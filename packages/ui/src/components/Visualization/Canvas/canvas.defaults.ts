@@ -20,6 +20,12 @@ export class CanvasDefaults {
   static readonly STEP_TOOLBAR_WIDTH = 350;
   static readonly STEP_TOOLBAR_HEIGHT = 60;
 
+  static readonly EDGE_LEAD_IN_DEFAULT = 29;
+  static readonly EDGE_LEAD_IN_BRANCHING = 48;
+  static readonly EDGE_TAIL_LENGTH = 36;
+  static readonly EDGE_ARROW_SIZE = 14;
+  static readonly EDGE_ALIGNMENT_TOLERANCE = 0.1;
+
   static readonly HOVER_DELAY_IN = 200;
   static readonly HOVER_DELAY_OUT = 500;
 

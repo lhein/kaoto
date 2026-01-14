@@ -32,7 +32,7 @@ import { CanvasDefaults } from '../../Canvas/canvas.defaults';
 import { CanvasNode } from '../../Canvas/canvas.models';
 import { NODE_DRAG_TYPE } from '../customComponentUtils';
 import { useReplaceStep } from '../hooks/replace-step.hook';
-import { TargetAnchor } from '../target-anchor';
+import { SourceAnchor, TargetAnchor } from '../target-anchor';
 
 type DefaultNodeProps = Parameters<typeof DefaultNode>[0];
 interface PlaceholderNodeInnerProps extends DefaultNodeProps {
@@ -54,8 +54,11 @@ const PlaceholderNodeInner: FunctionComponent<PlaceholderNodeInnerProps> = obser
   const labelX = (boxRef.current.width - CanvasDefaults.DEFAULT_LABEL_WIDTH) / 2;
 
   useAnchor((element: Node) => {
+    return new SourceAnchor(element);
+  }, AnchorEnd.source);
+  useAnchor((element: Node) => {
     return new TargetAnchor(element);
-  }, AnchorEnd.both);
+  }, AnchorEnd.target);
 
   if (!vizNode) {
     return null;

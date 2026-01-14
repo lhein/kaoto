@@ -5,7 +5,10 @@ import {
   action,
   createTopologyControlButtons,
   defaultControlButtonsOptions,
+  GRAPH_LAYOUT_END_EVENT,
+  isNode,
   Model,
+  Point,
   SELECTION_EVENT,
   SelectionEventListener,
   TopologyControlBar,
@@ -15,6 +18,7 @@ import {
   useVisualizationController,
   VisualizationSurface,
 } from '@patternfly/react-topology';
+import { runInAction } from 'mobx';
 import clsx from 'clsx';
 import {
   FunctionComponent,
@@ -118,6 +122,141 @@ export const Canvas: FunctionComponent<PropsWithChildren<CanvasProps>> = ({ enti
   }, [controller, entities, visibleFlows]);
 
   useEventListener<SelectionEventListener>(SELECTION_EVENT, setSelectedIds);
+  useEventListener(GRAPH_LAYOUT_END_EVENT, () => {
+    const layout = controller.getGraph().getLayout();
+    const isHorizontal = layout === LayoutType.DagreHorizontal;
+    const isVertical = layout === LayoutType.DagreVertical;
+    if (!isHorizontal && !isVertical) {
+      return;
+    }
+
+    const graph = controller.getGraph();
+    const topLevelNodes = graph.getNodes();
+    const nodes = (() => {
+      const allNodes: typeof topLevelNodes = [];
+      const stack = [...topLevelNodes];
+      while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node) continue;
+        allNodes.push(node);
+        node.getChildren().forEach((child) => {
+          if (isNode(child)) {
+            stack.push(child);
+          }
+        });
+      }
+      return allNodes;
+    })();
+    const nodeByVizId = new Map<string, (typeof nodes)[number]>();
+    nodes.forEach((node) => {
+      const vizNode = node.getData()?.vizNode;
+      if (vizNode?.id) {
+        nodeByVizId.set(vizNode.id, node);
+      }
+    });
+
+    const getAncestors = (node: (typeof nodes)[number]) => {
+      const chain: (typeof nodes)[number][] = [];
+      let current: (typeof nodes)[number] | undefined = node;
+      while (current) {
+        chain.push(current);
+        const incoming = current.getTargetEdges();
+        if (incoming.length === 0) break;
+        current = incoming[0].getSource();
+      }
+      return chain;
+    };
+
+    const findBranchNode = (sources: (typeof nodes)[number][]) => {
+      const ancestorLists = sources.map((source) => getAncestors(source));
+      if (ancestorLists.length === 0) return undefined;
+      const [first, ...rest] = ancestorLists;
+      return first.find(
+        (candidate) =>
+          candidate.getSourceEdges().length > 1 && rest.every((list) => list.some((node) => node === candidate)),
+      );
+    };
+
+    const mergeCandidates = nodes.filter((node) => node.getTargetEdges().length > 1);
+
+    runInAction(() => {
+      topLevelNodes.forEach((routeContainer) => {
+        if (!routeContainer.isGroup?.()) return;
+
+        const routeCenter = routeContainer.getBounds().getCenter();
+        const routeChildren = routeContainer
+          .getChildren()
+          .filter(isNode)
+          .filter((node) => !node.isGroup?.() && node.getParent?.() === routeContainer);
+        const entryNodes = routeChildren.filter((node) => node.getTargetEdges().length === 0);
+
+        if (entryNodes.length === 0) return;
+
+        const firstEntry = entryNodes.reduce((best, node) => {
+          const bestPos = best.getBounds().getCenter();
+          const nodePos = node.getBounds().getCenter();
+          if (isHorizontal) {
+            return nodePos.x < bestPos.x ? node : best;
+          }
+          return nodePos.y < bestPos.y ? node : best;
+        }, entryNodes[0]);
+
+        const sameContainer = (node: (typeof nodes)[number]) => node.getParent?.() === routeContainer;
+        let current: (typeof nodes)[number] | undefined = firstEntry;
+
+        while (current && sameContainer(current)) {
+          const bounds = current.getBounds();
+          if (isHorizontal) {
+            current.setPosition(new Point(bounds.x, routeCenter.y - bounds.height / 2));
+          } else {
+            current.setPosition(new Point(routeCenter.x - bounds.width / 2, bounds.y));
+          }
+
+          const outgoing = current.getSourceEdges();
+          if (outgoing.length !== 1) break;
+
+          const next = outgoing[0].getTarget();
+          if (next.getTargetEdges().length !== 1) break;
+
+          current = next;
+        }
+      });
+
+      mergeCandidates.forEach((mergeNode) => {
+        const incoming = mergeNode.getTargetEdges();
+
+        const branchNode = findBranchNode(incoming.map((edge) => edge.getSource()));
+        if (!branchNode) return;
+
+        let routeContainer = mergeNode.getParent();
+        while (routeContainer && !routeContainer.isGroup?.()) {
+          routeContainer = routeContainer.getParent();
+        }
+        if (!routeContainer) return;
+
+        const routeCenter = routeContainer.getBounds().getCenter();
+        const sameContainer = (node: (typeof nodes)[number]) => node.getParent?.() === routeContainer;
+        let current: (typeof nodes)[number] | undefined = mergeNode;
+
+        while (current && sameContainer(current)) {
+          const bounds = current.getBounds();
+          if (isHorizontal) {
+            current.setPosition(new Point(bounds.x, routeCenter.y - bounds.height / 2));
+          } else {
+            current.setPosition(new Point(routeCenter.x - bounds.width / 2, bounds.y));
+          }
+
+          const outgoing = current.getSourceEdges();
+          if (outgoing.length !== 1) break;
+
+          const next = outgoing[0].getTarget();
+          if (next.getTargetEdges().length !== 1) break;
+
+          current = next;
+        }
+      });
+    });
+  });
 
   /** Set select node and pan it into view */
   useEffect(() => {

@@ -224,6 +224,12 @@
   justify-content: flex-end;
 }
 
+.rest-dsl-page-toast {
+  inset: 0 auto auto;
+  right: 24px;
+  top: 24px;
+}
+
 .rest-dsl-page-import-source {
   margin: 8px 0 16px 24px;
   display: grid;

@@ -2,6 +2,8 @@ import './RestDslPage.scss';
 
 import { CanvasFormTabsContextResult, TypeaheadItem } from '@kaoto/forms';
 import {
+  Alert,
+  AlertGroup,
   Button,
   Form,
   FormGroup,
@@ -347,6 +349,7 @@ export const RestDslPage: FunctionComponent = () => {
   const [isApicurioLoading, setIsApicurioLoading] = useState(false);
   const [selectedApicurioId, setSelectedApicurioId] = useState('');
   const [isImportBusy, setIsImportBusy] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [toUriValue, setToUriValue] = useState('');
   const toUriFieldRef = useRef<HTMLDivElement | null>(null);
   const openApiFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -699,6 +702,16 @@ export const RestDslPage: FunctionComponent = () => {
     setFilteredApicurioArtifacts(apicurioArtifacts.filter((artifact) => artifact.name.toLowerCase().includes(lowered)));
   }, [apicurioArtifacts, apicurioSearch]);
 
+  useEffect(() => {
+    if (!importStatus) return;
+    const timeoutId = globalThis.setTimeout(() => {
+      setImportStatus(null);
+    }, 5000);
+    return () => {
+      globalThis.clearTimeout(timeoutId);
+    };
+  }, [importStatus]);
+
   const handleUploadOpenApiClick = useCallback(() => {
     openApiFileInputRef.current?.click();
   }, []);
@@ -746,10 +759,20 @@ export const RestDslPage: FunctionComponent = () => {
   }, []);
 
   const handleImportOpenApi = useCallback(() => {
-    if (!entitiesContext || (!importCreateRest && !importCreateRoutes)) return;
+    if (!entitiesContext || (!importCreateRest && !importCreateRoutes)) {
+      setImportStatus({
+        type: 'error',
+        message: 'Import failed. Choose at least one option to generate.',
+      });
+      return;
+    }
     const selectedOperations = importOperations.filter((operation) => operation.selected);
     if (selectedOperations.length === 0) {
       setOpenApiError('Select at least one operation to import.');
+      setImportStatus({
+        type: 'error',
+        message: 'Import failed. Select at least one operation.',
+      });
       return;
     }
 
@@ -810,6 +833,10 @@ export const RestDslPage: FunctionComponent = () => {
     }
 
     entitiesContext.updateEntitiesFromCamelResource();
+    setImportStatus({
+      type: 'success',
+      message: `Import succeeded. ${selectedOperations.length} operation${selectedOperations.length === 1 ? '' : 's'} added.`,
+    });
     closeImportOpenApi();
   }, [closeImportOpenApi, entitiesContext, importCreateRest, importCreateRoutes, importOperations, openApiSpecUri]);
 
@@ -1168,6 +1195,15 @@ export const RestDslPage: FunctionComponent = () => {
 
   return (
     <ActionConfirmationModalContextProvider>
+      <AlertGroup isToast className="rest-dsl-page-toast">
+        {importStatus && (
+          <Alert
+            variant={importStatus.type === 'success' ? 'success' : 'danger'}
+            title={importStatus.message}
+            isLiveRegion
+          />
+        )}
+      </AlertGroup>
       <div className="rest-dsl-page">
         <Split className="rest-dsl-page-split" hasGutter>
           <RestDslNav

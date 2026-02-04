@@ -513,7 +513,7 @@ export const RestDslPage: FunctionComponent = () => {
   const [isOpenApiParsed, setIsOpenApiParsed] = useState(false);
   const [openApiLoadSource, setOpenApiLoadSource] = useState<ImportLoadSource>(undefined);
   const [importSource, setImportSource] = useState<ImportSourceOption>('uri');
-  const [importCreateRest, setImportCreateRest] = useState(true);
+  const [importCreateRest, setImportCreateRest] = useState(false);
   const [importCreateRoutes, setImportCreateRoutes] = useState(true);
   const [importSelectAll, setImportSelectAll] = useState(true);
   const [apicurioArtifacts, setApicurioArtifacts] = useState<ApicurioArtifact[]>([]);
@@ -712,6 +712,7 @@ export const RestDslPage: FunctionComponent = () => {
     setIsOpenApiParsed(false);
     setOpenApiLoadSource(undefined);
     setImportSelectAll(true);
+    setImportCreateRest(false);
     setApicurioSearch('');
     setApicurioError('');
     setApicurioArtifacts([]);
@@ -853,9 +854,9 @@ export const RestDslPage: FunctionComponent = () => {
   );
 
   useEffect(() => {
-    if (!isImportOpenApiOpen) return;
+    if (!isImportOpenApiOpen || importSource !== 'apicurio') return;
     fetchApicurioArtifacts();
-  }, [fetchApicurioArtifacts, isImportOpenApiOpen]);
+  }, [fetchApicurioArtifacts, importSource, isImportOpenApiOpen]);
 
   useEffect(() => {
     if (!apicurioSearch.trim()) {
@@ -1758,8 +1759,8 @@ export const RestDslPage: FunctionComponent = () => {
                         </div>
                       )}
                     </FormGroup>
-                    {(openApiError || apicurioError) && (
-                      <span className="rest-dsl-page-import-error">{openApiError || apicurioError}</span>
+                    {openApiError && importSource !== 'apicurio' && (
+                      <span className="rest-dsl-page-import-error">{openApiError}</span>
                     )}
                   </Form>
                 </WizardStep>

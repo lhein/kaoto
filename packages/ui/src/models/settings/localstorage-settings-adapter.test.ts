@@ -13,6 +13,7 @@ describe('LocalStorageSettingsAdapter', () => {
     const adapter = new LocalStorageSettingsAdapter();
     const newSettings: SettingsModel = {
       catalogUrl: 'http://example.com',
+      apicurioRegistryUrl: '',
       nodeLabel: NodeLabelType.Description,
       nodeToolbarTrigger: NodeToolbarTrigger.onSelection,
       colorScheme: ColorScheme.Auto,
@@ -40,6 +41,7 @@ describe('LocalStorageSettingsAdapter', () => {
     const adapter = new LocalStorageSettingsAdapter();
     const newSettings: SettingsModel = {
       catalogUrl: 'http://example.com',
+      apicurioRegistryUrl: '',
       nodeLabel: NodeLabelType.Description,
       nodeToolbarTrigger: NodeToolbarTrigger.onSelection,
       colorScheme: ColorScheme.Auto,

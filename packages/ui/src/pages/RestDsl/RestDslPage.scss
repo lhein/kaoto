@@ -38,6 +38,13 @@
   flex-direction: column;
 }
 
+.rest-dsl-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .rest-dsl-page-panel-body {
   overflow: auto;
   display: flex;
@@ -187,6 +194,62 @@
 .rest-dsl-page-to-uri-row > :first-child {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.rest-dsl-page-import-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rest-dsl-page-import-uri-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rest-dsl-page-import-uri-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rest-dsl-page-import-file-input {
+  display: none;
+}
+
+.rest-dsl-page-import-error {
+  color: var(--pf-v6-global--danger-color--100);
+  font-size: var(--pf-v6-global--FontSize--sm);
+}
+
+.rest-dsl-page-import-options {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rest-dsl-page-import-list {
+  display: grid;
+  gap: 8px;
+}
+
+.rest-dsl-page-import-list-scroll {
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.rest-dsl-page-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rest-dsl-page-import-note {
+  font-size: var(--pf-v6-global--FontSize--xs);
+  color: var(--pf-v6-global--Color--200);
 }
 
 @media (width <= 1200px) {

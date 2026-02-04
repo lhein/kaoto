@@ -38,9 +38,7 @@ const RestOperationList: FunctionComponent<RestOperationListProps> = ({
   getListItemClass,
 }) => {
   const items = restMethods.flatMap((verb) => {
-    const operations = (restDefinition as Record<string, unknown>)[verb] as
-      | Array<{ path?: string; id?: string }>
-      | undefined;
+    const operations = restDefinition[verb] as Array<{ path?: string; id?: string }> | undefined;
     if (!operations || operations.length === 0) return [];
 
     return operations.map((operation, index) => (
@@ -124,9 +122,9 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
   return (
     <SplitItem className="rest-dsl-page-pane rest-dsl-page-pane-nav" style={{ flexBasis: navWidth }}>
       <Card className="rest-dsl-page-panel">
-        <CardHeader>
+        <CardHeader className="rest-dsl-page-panel-header">
           <div className="rest-dsl-page-header">
-            <Title headingLevel="h2" size="md">
+            <Title headingLevel="h2" size="md" className="rest-dsl-page-panel-title">
               Rest DSL
             </Title>
             <Dropdown isOpen={isImportMenuOpen} onSelect={onImportMenuSelect} toggle={importMenuToggleRenderer}>
@@ -139,7 +137,7 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
         <CardBody className="rest-dsl-page-panel-body">
           <div className="rest-dsl-page-section-header">
             <Title headingLevel="h3" className="rest-dsl-page-section-title">
-              Rest Configuration
+              <span className="rest-dsl-page-section-title-text">Rest Configuration</span>
             </Title>
             <div className="rest-dsl-page-section-actions">
               <Button
@@ -181,7 +179,7 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
 
           <div className="rest-dsl-page-section-header">
             <Title headingLevel="h3" className="rest-dsl-page-section-title">
-              Rest Services
+              <span className="rest-dsl-page-section-title-text">Rest Services</span>
             </Title>
             <div className="rest-dsl-page-section-actions">
               <Button variant="secondary" icon={<PlusIcon />} onClick={onCreateRest} isDisabled={!canAddRestEntities}>

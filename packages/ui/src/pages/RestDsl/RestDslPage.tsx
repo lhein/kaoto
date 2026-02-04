@@ -1236,6 +1236,9 @@ export const RestDslPage: FunctionComponent = () => {
             aria-label="Resize panels"
           >
             <hr className="rest-dsl-page-resize-handle-line" />
+            <span className="rest-dsl-page-resize-grip" aria-hidden="true">
+              ||
+            </span>
           </button>
           <RestDslDetails
             formKey={formKey}

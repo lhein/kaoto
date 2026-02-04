@@ -85,17 +85,17 @@ type ImportWizardFooterProps = {
   isOpenApiParsed: boolean;
   importCreateRest: boolean;
   importCreateRoutes: boolean;
-  onBack: () => void;
-  onCancel: () => void;
-  onNext: () => Promise<void>;
+  onBack: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  onCancel: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  onNext: (event: React.MouseEvent<HTMLButtonElement>) => Promise<boolean>;
   onFinish: () => void;
 };
 
 type WizardFooterRenderParams = {
-  activeStep: { id?: string };
-  goToNextStep: () => void;
-  goToPrevStep: () => void;
-  close: () => void;
+  activeStep: { id?: string | number };
+  goToNextStep: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  goToPrevStep: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  close: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 };
 
 type OperationVerbToggleProps = {
@@ -156,6 +156,22 @@ const trimUnderscoreEdges = (value: string) => {
   return value.slice(start, end);
 };
 
+const normalizeOperationIdFallback = (value: string) => {
+  let result = '';
+  let lastUnderscore = false;
+  for (const ch of value) {
+    const isAllowed = /[\w.-]/.test(ch);
+    if (isAllowed) {
+      result += ch;
+      lastUnderscore = false;
+    } else if (!lastUnderscore) {
+      result += '_';
+      lastUnderscore = true;
+    }
+  }
+  return trimUnderscoreEdges(result);
+};
+
 type OperationVerbSelectProps = {
   isOpen: boolean;
   selected: RestVerb;
@@ -204,7 +220,6 @@ const RestOperationList: FunctionComponent<RestOperationListProps> = ({
           </button>
           <Button
             variant="plain"
-            size="sm"
             icon={<TrashIcon />}
             aria-label="Delete Operation"
             onClick={() => onDeleteOperation(restEntity, verb, index)}
@@ -258,12 +273,12 @@ const ImportWizardFooter: FunctionComponent<ImportWizardFooterProps> = ({
   onNext,
   onFinish,
 }) => {
-  const handleNextClick = async () => {
+  const handleNextClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (isOperationsStep) {
       onFinish();
       return;
     }
-    await onNext();
+    await onNext(event);
   };
 
   return (
@@ -294,7 +309,7 @@ const renderImportWizardFooter = (
     'isSourceStep' | 'isOperationsStep' | 'onBack' | 'onCancel' | 'onNext' | 'onFinish'
   > & {
     onFinish: () => void;
-    onNext: () => Promise<boolean>;
+    onNext: (event: React.MouseEvent<HTMLButtonElement>) => Promise<boolean>;
   },
 ) => {
   const isSourceStep = params.activeStep.id === 'source';
@@ -308,14 +323,15 @@ const renderImportWizardFooter = (
       isOpenApiParsed={footerState.isOpenApiParsed}
       importCreateRest={footerState.importCreateRest}
       importCreateRoutes={footerState.importCreateRoutes}
-      onBack={params.goToPrevStep}
-      onCancel={params.close}
+      onBack={(event) => params.goToPrevStep(event)}
+      onCancel={(event) => params.close(event)}
       onFinish={footerState.onFinish}
-      onNext={async () => {
-        const ok = await footerState.onNext();
+      onNext={async (event) => {
+        const ok = await footerState.onNext(event);
         if (ok) {
-          params.goToNextStep();
+          await params.goToNextStep(event);
         }
+        return ok;
       }}
     />
   );
@@ -383,7 +399,7 @@ export const RestDslPage: FunctionComponent = () => {
     const trimmed = value.trim();
     if (trimmed) return trimmed;
     const fallback = `${method}_${path}`;
-    return trimUnderscoreEdges(fallback.replaceAll(/[^\w.-]+/g, '_')) || `${method}_${Date.now()}`;
+    return normalizeOperationIdFallback(fallback) || `${method}_${Date.now()}`;
   }, []);
 
   const buildImportOperations = useCallback(
@@ -1245,7 +1261,7 @@ export const RestDslPage: FunctionComponent = () => {
   );
 
   const handleResizeStart = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLButtonElement>) => {
       resizeRef.current = {
         startX: event.clientX,
         startWidth: navWidth,
@@ -1358,13 +1374,12 @@ export const RestDslPage: FunctionComponent = () => {
               </CardHeader>
               <CardBody className="rest-dsl-page-panel-body">
                 <div className="rest-dsl-page-section-header">
-                  <Title headingLevel="h3" size="sm" className="rest-dsl-page-section-title">
+                  <Title headingLevel="h3" className="rest-dsl-page-section-title">
                     Rest Configuration
                   </Title>
                   <div className="rest-dsl-page-section-actions">
                     <Button
                       variant="secondary"
-                      size="sm"
                       icon={<PlusIcon />}
                       onClick={handleCreateRestConfiguration}
                       isDisabled={!canAddRestEntities || Boolean(restConfiguration)}
@@ -1387,7 +1402,6 @@ export const RestDslPage: FunctionComponent = () => {
                         <div className="rest-dsl-page-rest-actions">
                           <Button
                             variant="plain"
-                            size="sm"
                             icon={<TrashIcon />}
                             aria-label="Delete Rest Configuration"
                             onClick={handleDeleteRestConfiguration}
@@ -1402,13 +1416,12 @@ export const RestDslPage: FunctionComponent = () => {
                 )}
 
                 <div className="rest-dsl-page-section-header">
-                  <Title headingLevel="h3" size="sm" className="rest-dsl-page-section-title">
+                  <Title headingLevel="h3" className="rest-dsl-page-section-title">
                     Rest Services
                   </Title>
                   <div className="rest-dsl-page-section-actions">
                     <Button
                       variant="secondary"
-                      size="sm"
                       icon={<PlusIcon />}
                       onClick={handleCreateRest}
                       isDisabled={!canAddRestEntities}
@@ -1438,14 +1451,12 @@ export const RestDslPage: FunctionComponent = () => {
                                 <Button
                                   variant="link"
                                   icon={<PlusIcon />}
-                                  size="sm"
                                   onClick={() => openAddOperationModal(restEntity.id)}
                                 >
                                   Add Operation
                                 </Button>
                                 <Button
                                   variant="plain"
-                                  size="sm"
                                   icon={<TrashIcon />}
                                   aria-label="Delete Rest Element"
                                   onClick={() => handleDeleteRest(restEntity)}
@@ -1522,7 +1533,6 @@ export const RestDslPage: FunctionComponent = () => {
                               <span>
                                 <Button
                                   variant="secondary"
-                                  size="sm"
                                   onClick={handleCreateDirectRoute}
                                   isDisabled={!toUriValue || directRouteExists}
                                 >
@@ -1635,7 +1645,7 @@ export const RestDslPage: FunctionComponent = () => {
                       importCreateRest,
                       importCreateRoutes,
                       onFinish: handleImportOpenApi,
-                      onNext: handleWizardNext,
+                      onNext: async (_event) => handleWizardNext(),
                     },
                   );
                 }}
@@ -1717,7 +1727,7 @@ export const RestDslPage: FunctionComponent = () => {
                                   value={apicurioSearch}
                                   onChange={(_event, value) => setApicurioSearch(value)}
                                 />
-                                <Button variant="secondary" size="sm" onClick={fetchApicurioArtifacts}>
+                                <Button variant="secondary" onClick={fetchApicurioArtifacts}>
                                   Refresh
                                 </Button>
                               </div>

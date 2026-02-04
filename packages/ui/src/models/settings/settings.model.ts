@@ -16,6 +16,7 @@ export const enum ColorScheme {
 
 export interface ISettingsModel {
   catalogUrl: string;
+  apicurioRegistryUrl: string;
   nodeLabel: NodeLabelType;
   nodeToolbarTrigger: NodeToolbarTrigger;
   colorScheme: ColorScheme;
@@ -31,6 +32,7 @@ export interface AbstractSettingsAdapter {
 
 export class SettingsModel implements ISettingsModel {
   catalogUrl: string = '';
+  apicurioRegistryUrl: string = '';
   nodeLabel: NodeLabelType = NodeLabelType.Description;
   nodeToolbarTrigger: NodeToolbarTrigger = NodeToolbarTrigger.onHover;
   colorScheme: ColorScheme = ColorScheme.Auto;

@@ -61,8 +61,8 @@ export const RestDslDetails: FunctionComponent<RestDslDetailsProps> = ({
   return (
     <SplitItem className="rest-dsl-page-pane rest-dsl-page-pane-form" isFilled>
       <Card className="rest-dsl-page-panel">
-        <CardHeader>
-          <Title headingLevel="h2" size="md">
+        <CardHeader className="rest-dsl-page-panel-header">
+          <Title headingLevel="h2" size="md" className="rest-dsl-page-panel-title">
             {selectedFormState?.title ?? 'Details'}
           </Title>
         </CardHeader>

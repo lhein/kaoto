@@ -17,6 +17,7 @@ import {
   Checkbox,
   Dropdown,
   DropdownItem,
+  DropdownList,
   EmptyState,
   EmptyStateBody,
   Form,
@@ -30,6 +31,8 @@ import {
   ModalHeader,
   ModalVariant,
   Popover,
+  Radio,
+  SearchInput,
   Select,
   SelectList,
   SelectOption,
@@ -38,9 +41,11 @@ import {
   TextArea,
   TextInput,
   Title,
+  Wizard,
+  WizardFooterWrapper,
+  WizardStep,
 } from '@patternfly/react-core';
-import { CodeIcon, EllipsisVIcon, HelpIcon, PlusIcon } from '@patternfly/react-icons';
-import { TrashIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, CodeIcon, EllipsisVIcon, HelpIcon, PlusIcon, TrashIcon } from '@patternfly/react-icons';
 import { FunctionComponent, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { parse as parseYaml } from 'yaml';
 
@@ -57,6 +62,7 @@ import { CamelRestConfigurationVisualEntity } from '../../models/visualization/f
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
 import { CamelRouteVisualEntity } from '../../models/visualization/flows/camel-route-visual-entity';
 import { CamelComponentFilterService } from '../../models/visualization/flows/support/camel-component-filter.service';
+import { SettingsContext } from '../../providers';
 import { EntitiesContext } from '../../providers';
 import {
   ACTION_ID_CONFIRM,
@@ -66,11 +72,24 @@ import {
 import { getValue, setValue } from '../../utils';
 
 type RestVerb = (typeof CamelComponentFilterService.REST_DSL_METHODS)[number];
+type ImportLoadSource = 'uri' | 'file' | 'apicurio' | 'manual' | undefined;
 
 type RestEditorSelection =
   | { kind: 'restConfiguration' }
   | { kind: 'rest'; restId: string }
   | { kind: 'operation'; restId: string; verb: RestVerb; index: number };
+
+type ApicurioArtifact = {
+  id: string;
+  name: string;
+  type: string;
+};
+
+type ApicurioArtifactSearchResult = {
+  artifacts: ApicurioArtifact[];
+};
+
+type ImportSourceOption = 'uri' | 'file' | 'apicurio';
 
 const REST_METHODS = CamelComponentFilterService.REST_DSL_METHODS;
 const NAV_MIN_WIDTH = 220;
@@ -89,6 +108,7 @@ type ImportOperation = {
 export const RestDslPage: FunctionComponent = () => {
   const entitiesContext = useContext(EntitiesContext);
   const actionConfirmation = useContext(ActionConfirmationModalContext);
+  const settingsAdapter = useContext(SettingsContext);
   const { selectedCatalog } = useRuntimeContext();
   const catalogKey = selectedCatalog?.version ?? selectedCatalog?.name ?? 'default';
 
@@ -231,9 +251,18 @@ export const RestDslPage: FunctionComponent = () => {
   const [openApiError, setOpenApiError] = useState('');
   const [importOperations, setImportOperations] = useState<ImportOperation[]>([]);
   const [isOpenApiParsed, setIsOpenApiParsed] = useState(false);
+  const [openApiLoadSource, setOpenApiLoadSource] = useState<ImportLoadSource>(undefined);
+  const [importSource, setImportSource] = useState<ImportSourceOption>('uri');
   const [importCreateRest, setImportCreateRest] = useState(true);
   const [importCreateRoutes, setImportCreateRoutes] = useState(true);
   const [importSelectAll, setImportSelectAll] = useState(true);
+  const [apicurioArtifacts, setApicurioArtifacts] = useState<ApicurioArtifact[]>([]);
+  const [filteredApicurioArtifacts, setFilteredApicurioArtifacts] = useState<ApicurioArtifact[]>([]);
+  const [apicurioSearch, setApicurioSearch] = useState('');
+  const [apicurioError, setApicurioError] = useState('');
+  const [isApicurioLoading, setIsApicurioLoading] = useState(false);
+  const [selectedApicurioId, setSelectedApicurioId] = useState('');
+  const [isImportBusy, setIsImportBusy] = useState(false);
   const [toUriValue, setToUriValue] = useState('');
   const toUriFieldRef = useRef<HTMLDivElement | null>(null);
   const openApiFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -408,7 +437,14 @@ export const RestDslPage: FunctionComponent = () => {
     setOpenApiSpecUri('');
     setImportOperations([]);
     setIsOpenApiParsed(false);
+    setOpenApiLoadSource(undefined);
     setImportSelectAll(true);
+    setApicurioSearch('');
+    setApicurioError('');
+    setApicurioArtifacts([]);
+    setFilteredApicurioArtifacts([]);
+    setImportSource('uri');
+    setSelectedApicurioId('');
   }, []);
 
   const closeImportOpenApi = useCallback(() => {
@@ -416,12 +452,12 @@ export const RestDslPage: FunctionComponent = () => {
   }, []);
 
   const parseOpenApiSpec = useCallback(
-    (specText: string) => {
+    (specText: string): boolean => {
       if (!specText.trim()) {
         setOpenApiError('Provide an OpenAPI specification to import.');
         setImportOperations([]);
         setIsOpenApiParsed(false);
-        return;
+        return false;
       }
 
       try {
@@ -436,31 +472,37 @@ export const RestDslPage: FunctionComponent = () => {
           setOpenApiError('No operations were found in the specification.');
           setImportOperations([]);
           setIsOpenApiParsed(false);
-          return;
+          return false;
         }
 
         setImportOperations(operations);
         setImportSelectAll(true);
         setOpenApiError('');
         setIsOpenApiParsed(true);
+        return true;
       } catch (error) {
         setOpenApiError('Invalid OpenAPI specification.');
         setImportOperations([]);
         setIsOpenApiParsed(false);
+        return false;
       }
     },
     [buildImportOperations],
   );
 
   const handleParseOpenApiSpec = useCallback(() => {
-    parseOpenApiSpec(openApiSpecText);
+    const ok = parseOpenApiSpec(openApiSpecText);
+    if (ok) {
+      setOpenApiLoadSource('manual');
+    }
   }, [openApiSpecText, parseOpenApiSpec]);
 
-  const handleFetchOpenApiSpec = useCallback(async () => {
+  const handleFetchOpenApiSpec = useCallback(async (): Promise<boolean> => {
     const uri = openApiSpecUri.trim();
     if (!uri) {
       setOpenApiError('Provide a specification URI to fetch.');
-      return;
+      setIsOpenApiParsed(false);
+      return false;
     }
 
     try {
@@ -469,12 +511,83 @@ export const RestDslPage: FunctionComponent = () => {
         throw new Error(`Failed to fetch specification (${response.status})`);
       }
       const specText = await response.text();
-      parseOpenApiSpec(specText);
+      const parsed = parseOpenApiSpec(specText);
+      if (parsed) {
+        setOpenApiLoadSource('uri');
+      }
+      return parsed;
     } catch (error) {
       setOpenApiError('Unable to fetch specification from the provided URI.');
       setIsOpenApiParsed(false);
+      return false;
     }
   }, [openApiSpecUri, parseOpenApiSpec]);
+
+  const fetchApicurioArtifacts = useCallback(async () => {
+    const apicurioRegistryUrl = settingsAdapter.getSettings().apicurioRegistryUrl;
+    if (!apicurioRegistryUrl) return;
+
+    setIsApicurioLoading(true);
+    setApicurioError('');
+    try {
+      const response = await fetch(`${apicurioRegistryUrl}/apis/registry/v2/search/artifacts`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch artifacts (${response.status})`);
+      }
+      const result = (await response.json()) as ApicurioArtifactSearchResult;
+      const artifacts = (result.artifacts ?? []).filter((artifact) => artifact.type === 'OPENAPI');
+      setApicurioArtifacts(artifacts);
+      setFilteredApicurioArtifacts(artifacts);
+    } catch (error) {
+      setApicurioError('Unable to fetch artifacts from Apicurio Registry.');
+    } finally {
+      setIsApicurioLoading(false);
+    }
+  }, [settingsAdapter]);
+
+  const handleLoadFromApicurio = useCallback(
+    async (artifactId: string): Promise<boolean> => {
+      const apicurioRegistryUrl = settingsAdapter.getSettings().apicurioRegistryUrl;
+      if (!apicurioRegistryUrl) return false;
+
+      setIsApicurioLoading(true);
+      setApicurioError('');
+      try {
+        const artifactUrl = `${apicurioRegistryUrl}/apis/registry/v2/groups/default/artifacts/${artifactId}`;
+        const response = await fetch(artifactUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch artifact (${response.status})`);
+        }
+        const specText = await response.text();
+        const parsed = parseOpenApiSpec(specText);
+        if (parsed) {
+          setOpenApiLoadSource('apicurio');
+        }
+        setOpenApiSpecUri(artifactUrl);
+        return parsed;
+      } catch (error) {
+        setApicurioError('Unable to download the selected artifact.');
+        return false;
+      } finally {
+        setIsApicurioLoading(false);
+      }
+    },
+    [parseOpenApiSpec, settingsAdapter],
+  );
+
+  useEffect(() => {
+    if (!isImportOpenApiOpen) return;
+    fetchApicurioArtifacts();
+  }, [fetchApicurioArtifacts, isImportOpenApiOpen]);
+
+  useEffect(() => {
+    if (!apicurioSearch.trim()) {
+      setFilteredApicurioArtifacts(apicurioArtifacts);
+      return;
+    }
+    const lowered = apicurioSearch.toLowerCase();
+    setFilteredApicurioArtifacts(apicurioArtifacts.filter((artifact) => artifact.name.toLowerCase().includes(lowered)));
+  }, [apicurioArtifacts, apicurioSearch]);
 
   const handleUploadOpenApiClick = useCallback(() => {
     openApiFileInputRef.current?.click();
@@ -488,7 +601,10 @@ export const RestDslPage: FunctionComponent = () => {
     reader.onload = () => {
       const content = typeof reader.result === 'string' ? reader.result : '';
       try {
-        parseOpenApiSpec(content);
+        const parsed = parseOpenApiSpec(content);
+        if (parsed) {
+          setOpenApiLoadSource('file');
+        }
         setOpenApiSpecUri(file.name);
       } catch (error) {
         setOpenApiError('Unable to parse the uploaded specification.');
@@ -592,6 +708,63 @@ export const RestDslPage: FunctionComponent = () => {
     entitiesContext.updateEntitiesFromCamelResource();
     closeImportOpenApi();
   }, [closeImportOpenApi, entitiesContext, importCreateRest, importCreateRoutes, importOperations, openApiSpecUri]);
+
+  const handleImportSourceChange = useCallback((nextSource: ImportSourceOption) => {
+    setImportSource(nextSource);
+    setOpenApiError('');
+    setApicurioError('');
+    setImportOperations([]);
+    setIsOpenApiParsed(false);
+    setOpenApiLoadSource(undefined);
+    setImportSelectAll(true);
+    setSelectedApicurioId('');
+  }, []);
+
+  const handleWizardNext = useCallback(async () => {
+    if (isImportBusy) return false;
+    setOpenApiError('');
+    setApicurioError('');
+
+    if (importSource === 'uri') {
+      if (!openApiSpecUri.trim()) {
+        setOpenApiError('Provide a specification URI to fetch.');
+        return false;
+      }
+      setIsImportBusy(true);
+      const ok = await handleFetchOpenApiSpec();
+      setIsImportBusy(false);
+      if (!ok) return false;
+    } else if (importSource === 'file') {
+      if (!isOpenApiParsed) {
+        setOpenApiError('Upload a specification file to continue.');
+        return false;
+      }
+    } else {
+      if (!selectedApicurioId) {
+        setApicurioError('Select an artifact to continue.');
+        return false;
+      }
+      setIsImportBusy(true);
+      const ok = await handleLoadFromApicurio(selectedApicurioId);
+      setIsImportBusy(false);
+      if (!ok) return false;
+    }
+
+    if (!isOpenApiParsed) {
+      setOpenApiError('Parse the specification before continuing.');
+      return false;
+    }
+
+    return true;
+  }, [
+    handleFetchOpenApiSpec,
+    handleLoadFromApicurio,
+    importSource,
+    isImportBusy,
+    isOpenApiParsed,
+    openApiSpecUri,
+    selectedApicurioId,
+  ]);
 
   useEffect(() => {
     if (selection?.kind !== 'operation') return;
@@ -900,7 +1073,9 @@ export const RestDslPage: FunctionComponent = () => {
                       />
                     )}
                   >
-                    <DropdownItem onClick={openImportOpenApi}>Import OpenAPI</DropdownItem>
+                    <DropdownList>
+                      <DropdownItem onClick={openImportOpenApi}>Import OpenAPI</DropdownItem>
+                    </DropdownList>
                   </Dropdown>
                 </div>
               </CardHeader>
@@ -1209,109 +1384,248 @@ export const RestDslPage: FunctionComponent = () => {
           </Modal>
         )}
         {isImportOpenApiOpen && (
-          <Modal isOpen variant={ModalVariant.large} onClose={closeImportOpenApi} aria-label="Import OpenAPI">
+          <Modal
+            isOpen
+            variant={ModalVariant.large}
+            aria-label="Import OpenAPI"
+            onClose={closeImportOpenApi}
+            className="rest-dsl-page-import-modal"
+          >
             <ModalHeader title="Import OpenAPI" />
             <ModalBody>
-              <Form>
-                <FormGroup label="Specification URI (optional)" fieldId="rest-openapi-spec-uri">
-                  <div className="rest-dsl-page-import-uri-row">
-                    <TextInput
-                      id="rest-openapi-spec-uri"
-                      value={openApiSpecUri}
-                      onChange={(_event, value) => setOpenApiSpecUri(value)}
-                    />
-                    <Button variant="secondary" onClick={handleFetchOpenApiSpec} isDisabled={!openApiSpecUri.trim()}>
-                      Fetch
-                    </Button>
-                    <Button variant="secondary" onClick={handleUploadOpenApiClick}>
-                      Upload
-                    </Button>
-                    <input
-                      ref={openApiFileInputRef}
-                      type="file"
-                      accept=".json,.yaml,.yml,application/json,application/yaml,application/x-yaml,text/yaml,text/x-yaml"
-                      onChange={handleUploadOpenApiFile}
-                      className="rest-dsl-page-import-file-input"
-                    />
-                  </div>
-                </FormGroup>
-                <FormGroup label="OpenAPI Specification" fieldId="rest-openapi-spec">
-                  <TextArea
-                    id="rest-openapi-spec"
-                    value={openApiSpecText}
-                    onChange={(_event, value) => setOpenApiSpecText(value)}
-                    resizeOrientation="vertical"
-                    rows={8}
-                  />
-                </FormGroup>
-                <div className="rest-dsl-page-import-actions">
-                  <Button variant="secondary" onClick={handleParseOpenApiSpec}>
-                    Parse Specification
-                  </Button>
-                  {openApiError && <span className="rest-dsl-page-import-error">{openApiError}</span>}
-                </div>
-                <div className="rest-dsl-page-import-options">
-                  <Checkbox
-                    id="rest-openapi-create-rest"
-                    label="Create Rest DSL operations"
-                    isChecked={importCreateRest}
-                    onChange={(_event, checked) => setImportCreateRest(checked)}
-                  />
-                  <Checkbox
-                    id="rest-openapi-create-routes"
-                    label="Create routes with direct endpoints"
-                    isChecked={importCreateRoutes}
-                    onChange={(_event, checked) => setImportCreateRoutes(checked)}
-                  />
-                </div>
-                {importOperations.length > 0 && (
-                  <div className="rest-dsl-page-import-list">
-                    <Checkbox
-                      id="rest-openapi-select-all"
-                      label="Select all operations"
-                      isChecked={importSelectAll}
-                      onChange={(_event, checked) => handleToggleSelectAllOperations(checked)}
-                    />
-                    <div className="rest-dsl-page-import-list-scroll">
-                      <List className="rest-dsl-page-list rest-dsl-page-list-nested">
-                        {importOperations.map((operation) => (
-                          <ListItem key={`${operation.operationId}-${operation.method}-${operation.path}`}>
-                            <div className="rest-dsl-page-import-row">
-                              <Checkbox
-                                id={`rest-openapi-${operation.operationId}-${operation.method}`}
-                                label={`${operation.method.toUpperCase()} ${operation.path}`}
-                                isChecked={operation.selected}
-                                onChange={(_event, checked) =>
-                                  handleToggleOperation(
-                                    operation.operationId,
-                                    operation.method,
-                                    operation.path,
-                                    checked,
-                                  )
-                                }
-                              />
-                              {operation.routeExists && <span className="rest-dsl-page-import-note">Route exists</span>}
-                            </div>
-                          </ListItem>
-                        ))}
-                      </List>
-                    </div>
-                  </div>
-                )}
-              </Form>
-            </ModalBody>
-            <ModalFooter>
-              <Button
-                variant="primary"
-                onClick={handleImportOpenApi}
-                isDisabled={(!importCreateRest && !importCreateRoutes) || !isOpenApiParsed}
+              <Wizard
+                onClose={closeImportOpenApi}
+                footer={(activeStep, goToNextStep, goToPrevStep, close) => {
+                  const isSourceStep = activeStep.id === 'source';
+                  const isOperationsStep = activeStep.id === 'operations';
+                  const handleNextClick = async () => {
+                    if (isOperationsStep) {
+                      handleImportOpenApi();
+                      return;
+                    }
+                    const ok = await handleWizardNext();
+                    if (ok) {
+                      goToNextStep();
+                    }
+                  };
+
+                  return (
+                    <WizardFooterWrapper className="rest-dsl-page-import-footer">
+                      <Button variant="secondary" onClick={goToPrevStep} isDisabled={isSourceStep || isImportBusy}>
+                        Back
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={handleNextClick}
+                        isDisabled={
+                          isImportBusy ||
+                          (isOperationsStep && (!isOpenApiParsed || (!importCreateRest && !importCreateRoutes)))
+                        }
+                      >
+                        {isOperationsStep ? 'Finish' : 'Next'}
+                      </Button>
+                      <Button variant="link" onClick={close}>
+                        Cancel
+                      </Button>
+                    </WizardFooterWrapper>
+                  );
+                }}
               >
-                Import
-              </Button>
-              <Button variant="link" onClick={closeImportOpenApi}>
-                Cancel
-              </Button>
-            </ModalFooter>
+                <WizardStep name="Import source" id="source">
+                  <Form>
+                    <FormGroup label="Choose import source" fieldId="rest-openapi-import-source">
+                      <Radio
+                        id="rest-openapi-import-uri"
+                        name="rest-openapi-import-source"
+                        label="Import from URI"
+                        isChecked={importSource === 'uri'}
+                        onChange={() => handleImportSourceChange('uri')}
+                      />
+                      {importSource === 'uri' && (
+                        <div className="rest-dsl-page-import-source">
+                          <div className="rest-dsl-page-import-uri-row">
+                            <TextInput
+                              id="rest-openapi-spec-uri"
+                              value={openApiSpecUri}
+                              onChange={(_event, value) => setOpenApiSpecUri(value)}
+                            />
+                            <Button
+                              variant="secondary"
+                              onClick={handleFetchOpenApiSpec}
+                              isDisabled={!openApiSpecUri.trim() || isImportBusy}
+                            >
+                              Fetch
+                            </Button>
+                          </div>
+                          {isOpenApiParsed && openApiLoadSource === 'uri' && (
+                            <span className="rest-dsl-page-import-success rest-dsl-page-import-success-block">
+                              <CheckCircleIcon /> Loaded
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <Radio
+                        id="rest-openapi-import-file"
+                        name="rest-openapi-import-source"
+                        label="Upload file"
+                        isChecked={importSource === 'file'}
+                        onChange={() => handleImportSourceChange('file')}
+                      />
+                      {importSource === 'file' && (
+                        <div className="rest-dsl-page-import-source">
+                          <Button variant="secondary" onClick={handleUploadOpenApiClick}>
+                            Upload
+                          </Button>
+                          {isOpenApiParsed && openApiLoadSource === 'file' && (
+                            <span className="rest-dsl-page-import-success">
+                              <CheckCircleIcon /> Loaded
+                            </span>
+                          )}
+                          <input
+                            ref={openApiFileInputRef}
+                            type="file"
+                            accept=".json,.yaml,.yml,application/json,application/yaml,application/x-yaml,text/yaml,text/x-yaml"
+                            onChange={handleUploadOpenApiFile}
+                            className="rest-dsl-page-import-file-input"
+                          />
+                        </div>
+                      )}
+                      <Radio
+                        id="rest-openapi-import-apicurio"
+                        name="rest-openapi-import-source"
+                        label="Import from Apicurio"
+                        isChecked={importSource === 'apicurio'}
+                        onChange={() => handleImportSourceChange('apicurio')}
+                      />
+                      {importSource === 'apicurio' && (
+                        <div className="rest-dsl-page-import-source rest-dsl-page-import-apicurio">
+                          {settingsAdapter.getSettings().apicurioRegistryUrl ? (
+                            <>
+                              <div className="rest-dsl-page-import-apicurio-toolbar">
+                                <SearchInput
+                                  aria-label="Search Apicurio artifacts"
+                                  placeholder="Search OpenAPI artifacts"
+                                  value={apicurioSearch}
+                                  onChange={(_event, value) => setApicurioSearch(value)}
+                                />
+                                <Button variant="secondary" size="sm" onClick={fetchApicurioArtifacts}>
+                                  Refresh
+                                </Button>
+                              </div>
+                              {apicurioError && <span className="rest-dsl-page-import-error">{apicurioError}</span>}
+                              <div className="rest-dsl-page-import-list-scroll rest-dsl-page-import-apicurio-list">
+                                <List className="rest-dsl-page-list rest-dsl-page-list-nested">
+                                  {filteredApicurioArtifacts.map((artifact) => (
+                                    <ListItem key={artifact.id}>
+                                      <Radio
+                                        id={`rest-openapi-apicurio-${artifact.id}`}
+                                        name="rest-openapi-apicurio-artifact"
+                                        label={
+                                          <span>
+                                            {artifact.name || artifact.id}{' '}
+                                            <span className="rest-dsl-page-import-note">(id: {artifact.id})</span>
+                                          </span>
+                                        }
+                                        isChecked={selectedApicurioId === artifact.id}
+                                        onChange={() => setSelectedApicurioId(artifact.id)}
+                                      />
+                                    </ListItem>
+                                  ))}
+                                  {filteredApicurioArtifacts.length === 0 && !isApicurioLoading && (
+                                    <ListItem>No OpenAPI artifacts found.</ListItem>
+                                  )}
+                                </List>
+                              </div>
+                              {isOpenApiParsed && openApiLoadSource === 'apicurio' && (
+                                <span className="rest-dsl-page-import-success">
+                                  <CheckCircleIcon /> Loaded
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="rest-dsl-page-import-note">
+                              Configure the Apicurio Registry URL in Settings to enable this option.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </FormGroup>
+                    {(openApiError || apicurioError) && (
+                      <span className="rest-dsl-page-import-error">{openApiError || apicurioError}</span>
+                    )}
+                  </Form>
+                </WizardStep>
+                <WizardStep name="Operations" id="operations">
+                  <Form>
+                    <FormGroup label="OpenAPI Specification" fieldId="rest-openapi-spec">
+                      <TextArea
+                        id="rest-openapi-spec"
+                        value={openApiSpecText}
+                        onChange={(_event, value) => setOpenApiSpecText(value)}
+                        resizeOrientation="vertical"
+                        rows={6}
+                      />
+                    </FormGroup>
+                    <div className="rest-dsl-page-import-actions">
+                      <Button variant="secondary" onClick={handleParseOpenApiSpec}>
+                        Parse Specification
+                      </Button>
+                      {openApiError && <span className="rest-dsl-page-import-error">{openApiError}</span>}
+                    </div>
+                    <div className="rest-dsl-page-import-options">
+                      <Checkbox
+                        id="rest-openapi-create-rest"
+                        label="Create Rest DSL operations"
+                        isChecked={importCreateRest}
+                        onChange={(_event, checked) => setImportCreateRest(checked)}
+                      />
+                      <Checkbox
+                        id="rest-openapi-create-routes"
+                        label="Create routes with direct endpoints"
+                        isChecked={importCreateRoutes}
+                        onChange={(_event, checked) => setImportCreateRoutes(checked)}
+                      />
+                    </div>
+                    {importOperations.length > 0 && (
+                      <div className="rest-dsl-page-import-list">
+                        <Checkbox
+                          id="rest-openapi-select-all"
+                          label="Select all operations"
+                          isChecked={importSelectAll}
+                          onChange={(_event, checked) => handleToggleSelectAllOperations(checked)}
+                        />
+                        <div className="rest-dsl-page-import-list-scroll">
+                          <List className="rest-dsl-page-list rest-dsl-page-list-nested">
+                            {importOperations.map((operation) => (
+                              <ListItem key={`${operation.operationId}-${operation.method}-${operation.path}`}>
+                                <div className="rest-dsl-page-import-row">
+                                  <Checkbox
+                                    id={`rest-openapi-${operation.operationId}-${operation.method}`}
+                                    label={`${operation.method.toUpperCase()} ${operation.path}`}
+                                    isChecked={operation.selected}
+                                    onChange={(_event, checked) =>
+                                      handleToggleOperation(
+                                        operation.operationId,
+                                        operation.method,
+                                        operation.path,
+                                        checked,
+                                      )
+                                    }
+                                  />
+                                  {operation.routeExists && (
+                                    <span className="rest-dsl-page-import-note">Route exists</span>
+                                  )}
+                                </div>
+                              </ListItem>
+                            ))}
+                          </List>
+                        </div>
+                      </div>
+                    )}
+                  </Form>
+                </WizardStep>
+              </Wizard>
+            </ModalBody>
           </Modal>
         )}
       </div>

@@ -25,6 +25,17 @@ export const Navigation: FunctionComponent<INavigationSidebar> = (props) => {
         ],
       },
       {
+        title: 'Rest DSL',
+        hidden: () => !NAVIGATION_ELEMENTS.RestDsl.includes(currentSchemaType),
+        children: [
+          { title: 'Editor', to: Links.Rest },
+          {
+            title: 'Import',
+            to: Links.RestImport,
+          },
+        ],
+      },
+      {
         title: 'Beans',
         to: Links.Beans,
         hidden: () => !NAVIGATION_ELEMENTS.Beans.includes(currentSchemaType),
@@ -112,6 +123,7 @@ export const Navigation: FunctionComponent<INavigationSidebar> = (props) => {
 
 const NAVIGATION_ELEMENTS = {
   Beans: [SourceSchemaType.Route, SourceSchemaType.Kamelet],
+  RestDsl: [SourceSchemaType.Route, SourceSchemaType.Integration],
   Metadata: [
     SourceSchemaType.Integration,
     SourceSchemaType.Kamelet,

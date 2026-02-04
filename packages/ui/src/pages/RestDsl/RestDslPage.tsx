@@ -62,8 +62,7 @@ import { CamelRestConfigurationVisualEntity } from '../../models/visualization/f
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
 import { CamelRouteVisualEntity } from '../../models/visualization/flows/camel-route-visual-entity';
 import { CamelComponentFilterService } from '../../models/visualization/flows/support/camel-component-filter.service';
-import { SettingsContext } from '../../providers';
-import { EntitiesContext } from '../../providers';
+import { EntitiesContext, SettingsContext } from '../../providers';
 import {
   ACTION_ID_CONFIRM,
   ActionConfirmationModalContext,
@@ -78,6 +77,249 @@ type RestEditorSelection =
   | { kind: 'restConfiguration' }
   | { kind: 'rest'; restId: string }
   | { kind: 'operation'; restId: string; verb: RestVerb; index: number };
+
+type ImportWizardFooterProps = {
+  isSourceStep: boolean;
+  isOperationsStep: boolean;
+  isImportBusy: boolean;
+  isOpenApiParsed: boolean;
+  importCreateRest: boolean;
+  importCreateRoutes: boolean;
+  onBack: () => void;
+  onCancel: () => void;
+  onNext: () => Promise<void>;
+  onFinish: () => void;
+};
+
+type WizardFooterRenderParams = {
+  activeStep: { id?: string };
+  goToNextStep: () => void;
+  goToPrevStep: () => void;
+  close: () => void;
+};
+
+type OperationVerbToggleProps = {
+  toggleRef: React.Ref<HTMLButtonElement>;
+  operationVerb: RestVerb;
+  onToggle: () => void;
+};
+
+const OperationVerbToggle: FunctionComponent<OperationVerbToggleProps> = ({ toggleRef, operationVerb, onToggle }) => {
+  return (
+    <MenuToggle ref={toggleRef} onClick={onToggle}>
+      {operationVerb.toUpperCase()}
+    </MenuToggle>
+  );
+};
+
+const createOperationVerbToggleRenderer =
+  (operationVerb: RestVerb, onToggle: () => void) => (toggleRef: React.Ref<HTMLButtonElement>) => (
+    <OperationVerbToggle toggleRef={toggleRef} operationVerb={operationVerb} onToggle={onToggle} />
+  );
+
+const OperationTypeHelp: FunctionComponent = () => (
+  <Popover
+    bodyContent="Select the HTTP method to create for this REST operation."
+    triggerAction="hover"
+    withFocusTrap={false}
+  >
+    <Button variant="plain" aria-label="More info about Operation Type" icon={<HelpIcon />} />
+  </Popover>
+);
+
+type RestDslImportMenuToggleProps = {
+  toggleRef: React.Ref<HTMLButtonElement>;
+  onToggle: () => void;
+};
+
+const RestDslImportMenuToggle: FunctionComponent<RestDslImportMenuToggleProps> = ({ toggleRef, onToggle }) => {
+  return (
+    <MenuToggle
+      ref={toggleRef}
+      variant="plain"
+      aria-label="Rest DSL actions"
+      onClick={onToggle}
+      icon={<EllipsisVIcon />}
+    />
+  );
+};
+
+const createRestDslImportMenuToggleRenderer = (onToggle: () => void) => (toggleRef: React.Ref<HTMLButtonElement>) => (
+  <RestDslImportMenuToggle toggleRef={toggleRef} onToggle={onToggle} />
+);
+
+const trimUnderscoreEdges = (value: string) => {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === '_') start += 1;
+  while (end > start && value[end - 1] === '_') end -= 1;
+  return value.slice(start, end);
+};
+
+type OperationVerbSelectProps = {
+  isOpen: boolean;
+  selected: RestVerb;
+  verbs: RestVerb[];
+  onSelect: (value: RestVerb) => void;
+  onOpenChange: (isOpen: boolean) => void;
+  onToggle: () => void;
+};
+
+type RestOperationListProps = {
+  restEntity: CamelRestVisualEntity;
+  restDefinition: Record<string, unknown>;
+  selection: RestEditorSelection | undefined;
+  onSelectOperation: (restId: string, verb: RestVerb, index: number) => void;
+  onDeleteOperation: (restEntity: CamelRestVisualEntity, verb: RestVerb, index: number) => void;
+};
+
+const RestOperationList: FunctionComponent<RestOperationListProps> = ({
+  restEntity,
+  restDefinition,
+  selection,
+  onSelectOperation,
+  onDeleteOperation,
+}) => {
+  const items = REST_METHODS.flatMap((verb) => {
+    const operations = (restDefinition as Record<string, unknown>)[verb] as
+      | Array<{ path?: string; id?: string }>
+      | undefined;
+    if (!operations || operations.length === 0) return [];
+
+    return operations.map((operation, index) => (
+      <ListItem key={`${restEntity.id}-${verb}-${index}`}>
+        <div className="rest-dsl-page-operation-row">
+          <button
+            className={getListItemClass(selection, {
+              kind: 'operation',
+              restId: restEntity.id,
+              verb,
+              index,
+            })}
+            onClick={() => onSelectOperation(restEntity.id, verb, index)}
+            type="button"
+          >
+            <span className={`rest-dsl-page-verb rest-dsl-page-verb-${verb}`}>{verb.toUpperCase()}</span>
+            <span className="rest-dsl-page-operation-path">{operation?.path || operation?.id || '/'}</span>
+          </button>
+          <Button
+            variant="plain"
+            size="sm"
+            icon={<TrashIcon />}
+            aria-label="Delete Operation"
+            onClick={() => onDeleteOperation(restEntity, verb, index)}
+          />
+        </div>
+      </ListItem>
+    ));
+  });
+
+  return <List className="rest-dsl-page-list rest-dsl-page-list-nested">{items}</List>;
+};
+
+const OperationVerbSelect: FunctionComponent<OperationVerbSelectProps> = ({
+  isOpen,
+  selected,
+  verbs,
+  onSelect,
+  onOpenChange,
+  onToggle,
+}) => {
+  const toggleRenderer = useMemo(() => createOperationVerbToggleRenderer(selected, onToggle), [selected, onToggle]);
+
+  return (
+    <Select
+      isOpen={isOpen}
+      selected={selected}
+      onSelect={(_event, value) => onSelect(value as RestVerb)}
+      onOpenChange={onOpenChange}
+      toggle={toggleRenderer}
+    >
+      <SelectList>
+        {verbs.map((verb) => (
+          <SelectOption key={verb} itemId={verb}>
+            {verb.toUpperCase()}
+          </SelectOption>
+        ))}
+      </SelectList>
+    </Select>
+  );
+};
+
+const ImportWizardFooter: FunctionComponent<ImportWizardFooterProps> = ({
+  isSourceStep,
+  isOperationsStep,
+  isImportBusy,
+  isOpenApiParsed,
+  importCreateRest,
+  importCreateRoutes,
+  onBack,
+  onCancel,
+  onNext,
+  onFinish,
+}) => {
+  const handleNextClick = async () => {
+    if (isOperationsStep) {
+      onFinish();
+      return;
+    }
+    await onNext();
+  };
+
+  return (
+    <WizardFooterWrapper className="rest-dsl-page-import-footer">
+      <Button variant="secondary" onClick={onBack} isDisabled={isSourceStep || isImportBusy}>
+        Back
+      </Button>
+      <Button
+        variant="primary"
+        onClick={handleNextClick}
+        isDisabled={
+          isImportBusy || (isOperationsStep && (!isOpenApiParsed || (!importCreateRest && !importCreateRoutes)))
+        }
+      >
+        {isOperationsStep ? 'Finish' : 'Next'}
+      </Button>
+      <Button variant="link" onClick={onCancel}>
+        Cancel
+      </Button>
+    </WizardFooterWrapper>
+  );
+};
+
+const renderImportWizardFooter = (
+  params: WizardFooterRenderParams,
+  footerState: Omit<
+    ImportWizardFooterProps,
+    'isSourceStep' | 'isOperationsStep' | 'onBack' | 'onCancel' | 'onNext' | 'onFinish'
+  > & {
+    onFinish: () => void;
+    onNext: () => Promise<boolean>;
+  },
+) => {
+  const isSourceStep = params.activeStep.id === 'source';
+  const isOperationsStep = params.activeStep.id === 'operations';
+
+  return (
+    <ImportWizardFooter
+      isSourceStep={isSourceStep}
+      isOperationsStep={isOperationsStep}
+      isImportBusy={footerState.isImportBusy}
+      isOpenApiParsed={footerState.isOpenApiParsed}
+      importCreateRest={footerState.importCreateRest}
+      importCreateRoutes={footerState.importCreateRoutes}
+      onBack={params.goToPrevStep}
+      onCancel={params.close}
+      onFinish={footerState.onFinish}
+      onNext={async () => {
+        const ok = await footerState.onNext();
+        if (ok) {
+          params.goToNextStep();
+        }
+      }}
+    />
+  );
+};
 
 type ApicurioArtifact = {
   id: string;
@@ -141,7 +383,7 @@ export const RestDslPage: FunctionComponent = () => {
     const trimmed = value.trim();
     if (trimmed) return trimmed;
     const fallback = `${method}_${path}`;
-    return fallback.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || `${method}_${Date.now()}`;
+    return trimUnderscoreEdges(fallback.replaceAll(/[^\w.-]+/g, '_')) || `${method}_${Date.now()}`;
   }, []);
 
   const buildImportOperations = useCallback(
@@ -153,7 +395,8 @@ export const RestDslPage: FunctionComponent = () => {
         OPENAPI_METHODS.forEach((method) => {
           const operation = pathItem?.[method] as Record<string, unknown> | undefined;
           if (!operation) return;
-          const operationId = normalizeOperationId(String(operation.operationId ?? ''), method, path);
+          const rawOperationId = typeof operation.operationId === 'string' ? operation.operationId : '';
+          const operationId = normalizeOperationId(rawOperationId, method, path);
           const routeExists = directRouteInputs.has(`direct:${operationId}`);
           operations.push({
             operationId,
@@ -176,12 +419,42 @@ export const RestDslPage: FunctionComponent = () => {
     const isAllowedRestTargetEndpoint = (uri: string) =>
       ALLOWED_REST_TARGET_ENDPOINTS.some((scheme) => uri.startsWith(scheme));
 
+    const addEndpointIfAllowed = (uri: string) => {
+      if (isAllowedRestTargetEndpoint(uri)) {
+        endpoints.add(uri);
+      }
+    };
+
+    const collectDirectEndpoint = (value: Record<string, unknown>) => {
+      const directName = getValue(value, 'parameters.name');
+      if (typeof directName === 'string' && directName.trim()) {
+        endpoints.add(`direct:${directName.trim()}`);
+      }
+    };
+
+    const collectUriValue = (value: Record<string, unknown>) => {
+      const uriValue = getValue(value, 'uri');
+      if (typeof uriValue !== 'string') return;
+      if (isAllowedRestTargetEndpoint(uriValue)) {
+        endpoints.add(uriValue);
+        return;
+      }
+      if (uriValue === 'direct') {
+        collectDirectEndpoint(value);
+      }
+    };
+
+    const collectObject = (value: Record<string, unknown>) => {
+      if (visited.has(value)) return;
+      visited.add(value);
+      collectUriValue(value);
+      Object.values(value).forEach((item) => collect(item));
+    };
+
     const collect = (value: unknown) => {
       if (!value) return;
       if (typeof value === 'string') {
-        if (isAllowedRestTargetEndpoint(value)) {
-          endpoints.add(value);
-        }
+        addEndpointIfAllowed(value);
         return;
       }
       if (Array.isArray(value)) {
@@ -189,20 +462,7 @@ export const RestDslPage: FunctionComponent = () => {
         return;
       }
       if (typeof value === 'object') {
-        if (visited.has(value)) return;
-        visited.add(value);
-        const uriValue = getValue(value, 'uri');
-        if (typeof uriValue === 'string') {
-          if (isAllowedRestTargetEndpoint(uriValue)) {
-            endpoints.add(uriValue);
-          } else if (uriValue === 'direct') {
-            const directName = getValue(value, 'parameters.name');
-            if (typeof directName === 'string' && directName.trim()) {
-              endpoints.add(`direct:${directName.trim()}`);
-            }
-          }
-        }
-        Object.values(value).forEach((item) => collect(item));
+        collectObject(value as Record<string, unknown>);
       }
     };
 
@@ -323,7 +583,7 @@ export const RestDslPage: FunctionComponent = () => {
 
   const getOperationToUri = useCallback(
     (selectionValue: RestEditorSelection | undefined) => {
-      if (!selectionValue || selectionValue.kind !== 'operation') return '';
+      if (selectionValue?.kind !== 'operation') return '';
       const restEntity = restEntities.find((entity) => entity.id === selectionValue.restId);
       if (!restEntity) return '';
       const restDefinition = restEntity.restDef?.rest ?? {};
@@ -334,8 +594,8 @@ export const RestDslPage: FunctionComponent = () => {
       if (!selectedOperation) return '';
       const toValue = (selectedOperation as { to?: unknown }).to;
       if (typeof toValue === 'string') return toValue;
-      if (toValue && typeof toValue === 'object' && 'uri' in toValue) {
-        return String((toValue as { uri?: string }).uri ?? '');
+      if (toValue && typeof toValue === 'object') {
+        return String((toValue as { uri?: string })?.uri ?? '');
       }
       return '';
     },
@@ -343,7 +603,7 @@ export const RestDslPage: FunctionComponent = () => {
   );
 
   const toUriSchema = useMemo(() => {
-    if (!selection || selection.kind !== 'operation' || !selectedFormState) return undefined;
+    if (selection?.kind !== 'operation' || !selectedFormState) return undefined;
     const schema = selectedFormState.entity.getNodeSchema(selectedFormState.path) as
       | { properties?: Record<string, unknown>; required?: string[] }
       | undefined;
@@ -429,6 +689,19 @@ export const RestDslPage: FunctionComponent = () => {
     handleOnChangeProp('to', undefined);
   }, [handleOnChangeProp]);
 
+  const handleSelectOperation = useCallback((restId: string, verb: RestVerb, index: number) => {
+    setSelection({ kind: 'operation', restId, verb, index });
+  }, []);
+
+  const handleImportMenuToggle = useCallback(() => {
+    setIsImportMenuOpen((prev) => !prev);
+  }, []);
+
+  const importMenuToggleRenderer = useMemo(
+    () => createRestDslImportMenuToggleRenderer(handleImportMenuToggle),
+    [handleImportMenuToggle],
+  );
+
   const openImportOpenApi = useCallback(() => {
     setIsImportOpenApiOpen(true);
     setIsImportMenuOpen(false);
@@ -481,7 +754,8 @@ export const RestDslPage: FunctionComponent = () => {
         setIsOpenApiParsed(true);
         return true;
       } catch (error) {
-        setOpenApiError('Invalid OpenAPI specification.');
+        const message = error instanceof Error ? error.message : 'Invalid OpenAPI specification.';
+        setOpenApiError(message || 'Invalid OpenAPI specification.');
         setImportOperations([]);
         setIsOpenApiParsed(false);
         return false;
@@ -517,7 +791,8 @@ export const RestDslPage: FunctionComponent = () => {
       }
       return parsed;
     } catch (error) {
-      setOpenApiError('Unable to fetch specification from the provided URI.');
+      const message = error instanceof Error ? error.message : 'Unable to fetch specification from the provided URI.';
+      setOpenApiError(message);
       setIsOpenApiParsed(false);
       return false;
     }
@@ -539,7 +814,8 @@ export const RestDslPage: FunctionComponent = () => {
       setApicurioArtifacts(artifacts);
       setFilteredApicurioArtifacts(artifacts);
     } catch (error) {
-      setApicurioError('Unable to fetch artifacts from Apicurio Registry.');
+      const message = error instanceof Error ? error.message : 'Unable to fetch artifacts from Apicurio Registry.';
+      setApicurioError(message);
     } finally {
       setIsApicurioLoading(false);
     }
@@ -566,7 +842,8 @@ export const RestDslPage: FunctionComponent = () => {
         setOpenApiSpecUri(artifactUrl);
         return parsed;
       } catch (error) {
-        setApicurioError('Unable to download the selected artifact.');
+        const message = error instanceof Error ? error.message : 'Unable to download the selected artifact.';
+        setApicurioError(message);
         return false;
       } finally {
         setIsApicurioLoading(false);
@@ -593,30 +870,24 @@ export const RestDslPage: FunctionComponent = () => {
     openApiFileInputRef.current?.click();
   }, []);
 
-  const handleUploadOpenApiFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadOpenApiFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const content = typeof reader.result === 'string' ? reader.result : '';
-      try {
-        const parsed = parseOpenApiSpec(content);
-        if (parsed) {
-          setOpenApiLoadSource('file');
-        }
-        setOpenApiSpecUri(file.name);
-      } catch (error) {
-        setOpenApiError('Unable to parse the uploaded specification.');
-        setIsOpenApiParsed(false);
+    try {
+      const content = await file.text();
+      const parsed = parseOpenApiSpec(content);
+      if (parsed) {
+        setOpenApiLoadSource('file');
       }
-    };
-    reader.onerror = () => {
-      setOpenApiError('Unable to read the uploaded specification.');
+      setOpenApiSpecUri(file.name);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to read the uploaded specification.';
+      setOpenApiError(message);
       setIsOpenApiParsed(false);
-    };
-    reader.readAsText(file);
-    event.target.value = '';
+    } finally {
+      event.target.value = '';
+    }
   }, []);
 
   const handleToggleSelectAllOperations = useCallback((checked: boolean) => {
@@ -859,6 +1130,10 @@ export const RestDslPage: FunctionComponent = () => {
     setAddOperationRestId(undefined);
   }, []);
 
+  const handleVerbToggle = useCallback(() => {
+    setIsVerbSelectOpen((prev) => !prev);
+  }, []);
+
   const handleCreateOperation = useCallback(() => {
     if (!entitiesContext || !addOperationRestId) return;
     const restEntity = restEntities.find((entity) => entity.id === addOperationRestId);
@@ -903,7 +1178,7 @@ export const RestDslPage: FunctionComponent = () => {
   const confirmDelete = useCallback(
     async (title: string, text: string) => {
       if (!actionConfirmation) {
-        return window.confirm(text);
+        return globalThis.confirm(text);
       }
 
       const result = await actionConfirmation.actionConfirmation({
@@ -946,7 +1221,7 @@ export const RestDslPage: FunctionComponent = () => {
       if (!entitiesContext) return;
       const restDefinition = restEntity.restDef.rest ?? {};
       const operations = (restDefinition as Record<string, unknown>)[verb] as Record<string, unknown>[] | undefined;
-      if (!operations || !operations[index]) return;
+      if (!operations?.[index]) return;
       const pathLabel = (operations[index] as { path?: string }).path ?? '';
       const shouldDelete = await confirmDelete(
         'Delete Operation',
@@ -995,12 +1270,12 @@ export const RestDslPage: FunctionComponent = () => {
       }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    globalThis.addEventListener('mousemove', handleMouseMove);
+    globalThis.addEventListener('mouseup', handleMouseUp);
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      globalThis.removeEventListener('mousemove', handleMouseMove);
+      globalThis.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
 
@@ -1036,7 +1311,16 @@ export const RestDslPage: FunctionComponent = () => {
                 {type ? ` <${type}>` : ''}
               </strong>
               {description && <p>{description}</p>}
-              {defaultValue !== undefined && <p>Default: {String(defaultValue)}</p>}
+              {defaultValue !== undefined && (
+                <p>
+                  Default:{' '}
+                  {typeof defaultValue === 'string' ||
+                  typeof defaultValue === 'number' ||
+                  typeof defaultValue === 'boolean'
+                    ? String(defaultValue)
+                    : JSON.stringify(defaultValue)}
+                </p>
+              )}
             </div>
           }
           triggerAction="hover"
@@ -1063,15 +1347,7 @@ export const RestDslPage: FunctionComponent = () => {
                   <Dropdown
                     isOpen={isImportMenuOpen}
                     onSelect={() => setIsImportMenuOpen(false)}
-                    toggle={(toggleRef) => (
-                      <MenuToggle
-                        ref={toggleRef}
-                        variant="plain"
-                        aria-label="Rest DSL actions"
-                        onClick={() => setIsImportMenuOpen((prev) => !prev)}
-                        icon={<EllipsisVIcon />}
-                      />
-                    )}
+                    toggle={importMenuToggleRenderer}
                   >
                     <DropdownList>
                       <DropdownItem onClick={openImportOpenApi}>Import OpenAPI</DropdownItem>
@@ -1176,47 +1452,13 @@ export const RestDslPage: FunctionComponent = () => {
                                 />
                               </div>
                             </div>
-                            <List className="rest-dsl-page-list rest-dsl-page-list-nested">
-                              {REST_METHODS.flatMap((verb) => {
-                                const operations = (restDefinition as Record<string, unknown>)[verb] as
-                                  | Array<{ path?: string; id?: string }>
-                                  | undefined;
-                                if (!operations || operations.length === 0) return [];
-
-                                return operations.map((operation, index) => (
-                                  <ListItem key={`${restEntity.id}-${verb}-${index}`}>
-                                    <div className="rest-dsl-page-operation-row">
-                                      <button
-                                        className={getListItemClass(selection, {
-                                          kind: 'operation',
-                                          restId: restEntity.id,
-                                          verb,
-                                          index,
-                                        })}
-                                        onClick={() =>
-                                          setSelection({ kind: 'operation', restId: restEntity.id, verb, index })
-                                        }
-                                        type="button"
-                                      >
-                                        <span className={`rest-dsl-page-verb rest-dsl-page-verb-${verb}`}>
-                                          {verb.toUpperCase()}
-                                        </span>
-                                        <span className="rest-dsl-page-operation-path">
-                                          {operation?.path || operation?.id || '/'}
-                                        </span>
-                                      </button>
-                                      <Button
-                                        variant="plain"
-                                        size="sm"
-                                        icon={<TrashIcon />}
-                                        aria-label="Delete Operation"
-                                        onClick={() => handleDeleteOperation(restEntity, verb, index)}
-                                      />
-                                    </div>
-                                  </ListItem>
-                                ));
-                              })}
-                            </List>
+                            <RestOperationList
+                              restEntity={restEntity}
+                              restDefinition={restDefinition as Record<string, unknown>}
+                              selection={selection}
+                              onSelectOperation={handleSelectOperation}
+                              onDeleteOperation={handleDeleteOperation}
+                            />
                           </div>
                         </ListItem>
                       );
@@ -1226,7 +1468,14 @@ export const RestDslPage: FunctionComponent = () => {
               </CardBody>
             </Card>
           </SplitItem>
-          <div className="rest-dsl-page-resize-handle" onMouseDown={handleResizeStart} role="separator" />
+          <button
+            type="button"
+            className="rest-dsl-page-resize-handle"
+            onMouseDown={handleResizeStart}
+            aria-label="Resize panels"
+          >
+            <hr className="rest-dsl-page-resize-handle-line" />
+          </button>
 
           <SplitItem className="rest-dsl-page-pane rest-dsl-page-pane-form" isFilled>
             <Card className="rest-dsl-page-panel">
@@ -1338,38 +1587,19 @@ export const RestDslPage: FunctionComponent = () => {
                   label="Operation Type"
                   fieldId="rest-operation-type"
                   isRequired
-                  labelHelp={
-                    <Popover
-                      bodyContent="Select the HTTP method to create for this REST operation."
-                      triggerAction="hover"
-                      withFocusTrap={false}
-                    >
-                      <Button variant="plain" aria-label="More info about Operation Type" icon={<HelpIcon />} />
-                    </Popover>
-                  }
+                  labelHelp={<OperationTypeHelp />}
                 >
-                  <Select
+                  <OperationVerbSelect
                     isOpen={isVerbSelectOpen}
                     selected={operationVerb}
-                    onSelect={(_event, value) => {
-                      setOperationVerb(value as RestVerb);
+                    verbs={REST_METHODS}
+                    onSelect={(value) => {
+                      setOperationVerb(value);
                       setIsVerbSelectOpen(false);
                     }}
                     onOpenChange={setIsVerbSelectOpen}
-                    toggle={(toggleRef) => (
-                      <MenuToggle ref={toggleRef} onClick={() => setIsVerbSelectOpen((prev) => !prev)}>
-                        {operationVerb.toUpperCase()}
-                      </MenuToggle>
-                    )}
-                  >
-                    <SelectList>
-                      {REST_METHODS.map((verb) => (
-                        <SelectOption key={verb} itemId={verb}>
-                          {verb.toUpperCase()}
-                        </SelectOption>
-                      ))}
-                    </SelectList>
-                  </Select>
+                    onToggle={handleVerbToggle}
+                  />
                 </FormGroup>
               </Form>
             </ModalBody>
@@ -1396,38 +1626,16 @@ export const RestDslPage: FunctionComponent = () => {
               <Wizard
                 onClose={closeImportOpenApi}
                 footer={(activeStep, goToNextStep, goToPrevStep, close) => {
-                  const isSourceStep = activeStep.id === 'source';
-                  const isOperationsStep = activeStep.id === 'operations';
-                  const handleNextClick = async () => {
-                    if (isOperationsStep) {
-                      handleImportOpenApi();
-                      return;
-                    }
-                    const ok = await handleWizardNext();
-                    if (ok) {
-                      goToNextStep();
-                    }
-                  };
-
-                  return (
-                    <WizardFooterWrapper className="rest-dsl-page-import-footer">
-                      <Button variant="secondary" onClick={goToPrevStep} isDisabled={isSourceStep || isImportBusy}>
-                        Back
-                      </Button>
-                      <Button
-                        variant="primary"
-                        onClick={handleNextClick}
-                        isDisabled={
-                          isImportBusy ||
-                          (isOperationsStep && (!isOpenApiParsed || (!importCreateRest && !importCreateRoutes)))
-                        }
-                      >
-                        {isOperationsStep ? 'Finish' : 'Next'}
-                      </Button>
-                      <Button variant="link" onClick={close}>
-                        Cancel
-                      </Button>
-                    </WizardFooterWrapper>
+                  return renderImportWizardFooter(
+                    { activeStep, goToNextStep, goToPrevStep, close },
+                    {
+                      isImportBusy,
+                      isOpenApiParsed,
+                      importCreateRest,
+                      importCreateRoutes,
+                      onFinish: handleImportOpenApi,
+                      onNext: handleWizardNext,
+                    },
                   );
                 }}
               >
@@ -1638,7 +1846,7 @@ const getListItemClass = (selection: RestEditorSelection | undefined, target: Re
     selection?.kind === target.kind &&
     (target.kind === 'restConfiguration' ||
       (selection?.kind !== 'restConfiguration' &&
-        selection?.restId === (target as Exclude<RestEditorSelection, { kind: 'restConfiguration' }>).restId &&
+        selection?.restId === (target as { restId?: string }).restId &&
         (target.kind !== 'operation' ||
           (selection?.kind === 'operation' && selection.verb === target.verb && selection.index === target.index))));
 

@@ -30,11 +30,11 @@ import { useRuntimeContext } from '../../hooks/useRuntimeContext/useRuntimeConte
 import { EntityType } from '../../models/camel/entities';
 import { CatalogKind } from '../../models/catalog-kind';
 import { LocalStorageKeys } from '../../models/local-storage-keys';
+import { REST_DSL_VERBS } from '../../models/special-processors.constants';
 import { CamelCatalogService } from '../../models/visualization/flows/camel-catalog.service';
 import { CamelRestConfigurationVisualEntity } from '../../models/visualization/flows/camel-rest-configuration-visual-entity';
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
 import { CamelRouteVisualEntity } from '../../models/visualization/flows/camel-route-visual-entity';
-import { CamelComponentFilterService } from '../../models/visualization/flows/support/camel-component-filter.service';
 import { EntitiesContext, SettingsContext } from '../../providers';
 import {
   ACTION_ID_CONFIRM,
@@ -167,7 +167,7 @@ const OperationVerbSelect: FunctionComponent<OperationVerbSelectProps> = ({
   );
 };
 
-const REST_METHODS = CamelComponentFilterService.REST_DSL_METHODS;
+const REST_METHODS = REST_DSL_VERBS;
 const NAV_MIN_WIDTH = 220;
 const NAV_MAX_WIDTH = 520;
 const ALLOWED_REST_TARGET_ENDPOINTS = ['direct:'] as const;

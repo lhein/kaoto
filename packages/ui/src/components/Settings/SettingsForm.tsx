@@ -50,7 +50,10 @@ export const SettingsForm: FunctionComponent = () => {
     navigate(Links.Home);
   };
 
-  const sortedMediaTypes = useMemo(() => [...customMediaTypes].sort(), [customMediaTypes]);
+  const sortedMediaTypes = useMemo(
+    () => [...customMediaTypes].sort((left, right) => left.localeCompare(right)),
+    [customMediaTypes],
+  );
 
   const addMediaType = useCallback(() => {
     const trimmed = mediaTypeInput.trim();

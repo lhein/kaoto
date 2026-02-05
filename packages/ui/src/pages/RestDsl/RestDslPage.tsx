@@ -791,6 +791,8 @@ export const RestDslPage: FunctionComponent = () => {
           | CamelRouteVisualEntity
           | undefined;
 
+        routeEntity?.updateModel('route.id', `route-${operation.operationId}`);
+        routeEntity?.updateModel('route.from.id', `direct-from-${operation.operationId}`);
         routeEntity?.updateModel('route.from.uri', `direct:${operation.operationId}`);
         routeEntity?.updateModel('route.from.steps', [
           {
@@ -823,6 +825,7 @@ export const RestDslPage: FunctionComponent = () => {
           list.push({
             id: operation.operationId,
             path: operation.path,
+            routeId: `route-${operation.operationId}`,
             to: `direct:${operation.operationId}`,
           });
           restDefinition[methodKey] = list;

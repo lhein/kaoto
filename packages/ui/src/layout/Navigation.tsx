@@ -28,11 +28,11 @@ export const Navigation: FunctionComponent<INavigationSidebar> = (props) => {
         title: 'Rest DSL',
         hidden: () => !NAVIGATION_ELEMENTS.RestDsl.includes(currentSchemaType),
         children: [
-          { title: 'Editor', to: Links.Rest },
+          { title: 'Editor', to: Links.Rest, isActive: (pathname) => pathname === Links.Rest },
           {
             title: 'Import',
-            to: `${Links.Rest}?import=1`,
-            isActive: false,
+            to: Links.RestImport,
+            isActive: (pathname) => pathname === Links.RestImport,
           },
         ],
       },

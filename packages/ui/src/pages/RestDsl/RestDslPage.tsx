@@ -42,6 +42,7 @@ import {
   ActionConfirmationModalContext,
   ActionConfirmationModalContextProvider,
 } from '../../providers/action-confirmation-modal.provider';
+import { Links } from '../../router/links.models';
 import { getValue, setValue } from '../../utils';
 import { RestDslDetails } from './RestDslDetails';
 import { RestDslImportWizard } from './RestDslImportWizard';
@@ -509,32 +510,12 @@ export const RestDslPage: FunctionComponent = () => {
     setSelection({ kind: 'rest', restId });
   }, []);
 
-  const openImportOpenApi = useCallback(() => {
-    setIsImportOpenApiOpen(true);
-    setOpenApiError('');
-    setOpenApiSpecText('');
-    setOpenApiSpecUri('');
-    setImportOperations([]);
-    setIsOpenApiParsed(false);
-    setOpenApiLoadSource(undefined);
-    setImportSelectAll(true);
-    setImportCreateRest(false);
-    setApicurioSearch('');
-    setApicurioError('');
-    setApicurioArtifacts([]);
-    setFilteredApicurioArtifacts([]);
-    setImportSource('uri');
-    setSelectedApicurioId('');
-  }, []);
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('import') === '1') {
-      openImportOpenApi();
-      params.delete('import');
-      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+      navigate(Links.RestImport, { replace: true });
     }
-  }, [location.pathname, location.search, navigate, openImportOpenApi]);
+  }, [location.search, navigate]);
 
   const closeImportOpenApi = useCallback(() => {
     setIsImportOpenApiOpen(false);

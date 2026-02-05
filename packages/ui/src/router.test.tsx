@@ -51,7 +51,10 @@ describe('router', () => {
     expect(children.some((route) => route.path === Links.DataMapper)).toBe(true);
     expect(children.some((route) => route.path === `${Links.DataMapper}/:id`)).toBe(true);
 
-    await Promise.all(children.filter((route) => route.lazy).map((route) => route.lazy?.()));
+    const lazyPromises = children
+      .map((route) => (typeof route.lazy === 'function' ? route.lazy() : undefined))
+      .filter(Boolean) as Promise<unknown>[];
+    await Promise.all(lazyPromises);
   });
 
   it('loads datamapper debug page when enabled', async () => {

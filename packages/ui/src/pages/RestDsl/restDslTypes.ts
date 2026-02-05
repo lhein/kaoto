@@ -1,6 +1,6 @@
-import { CamelComponentFilterService } from '../../models/visualization/flows/support/camel-component-filter.service';
+import { REST_DSL_VERBS } from '../../models/special-processors.constants';
 
-export type RestVerb = (typeof CamelComponentFilterService.REST_DSL_METHODS)[number];
+export type RestVerb = (typeof REST_DSL_VERBS)[number];
 
 export type ImportLoadSource = 'uri' | 'file' | 'apicurio' | 'manual' | undefined;
 

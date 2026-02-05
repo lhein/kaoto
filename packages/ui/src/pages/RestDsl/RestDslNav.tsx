@@ -1,18 +1,6 @@
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Dropdown,
-  DropdownItem,
-  DropdownList,
-  List,
-  ListItem,
-  SplitItem,
-  Title,
-} from '@patternfly/react-core';
+import { Button, Card, CardBody, CardHeader, List, ListItem, SplitItem, Title } from '@patternfly/react-core';
 import { PlusIcon, TrashIcon } from '@patternfly/react-icons';
-import { FunctionComponent, ReactNode, Ref } from 'react';
+import { FunctionComponent } from 'react';
 
 import { CamelRestConfigurationVisualEntity } from '../../models/visualization/flows/camel-rest-configuration-visual-entity';
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
@@ -74,10 +62,6 @@ const RestOperationList: FunctionComponent<RestOperationListProps> = ({
 
 type RestDslNavProps = {
   navWidth: number | string;
-  isImportMenuOpen: boolean;
-  importMenuToggleRenderer: (toggleRef: Ref<HTMLButtonElement>) => ReactNode;
-  onImportMenuSelect: () => void;
-  onImportOpenApi: () => void;
   restConfiguration?: CamelRestConfigurationVisualEntity;
   restEntities: CamelRestVisualEntity[];
   restMethods: RestVerb[];
@@ -98,10 +82,6 @@ type RestDslNavProps = {
 
 export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
   navWidth,
-  isImportMenuOpen,
-  importMenuToggleRenderer,
-  onImportMenuSelect,
-  onImportOpenApi,
   restConfiguration,
   restEntities,
   restMethods,
@@ -127,11 +107,6 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
             <Title headingLevel="h2" size="md" className="rest-dsl-page-panel-title">
               Rest DSL
             </Title>
-            <Dropdown isOpen={isImportMenuOpen} onSelect={onImportMenuSelect} toggle={importMenuToggleRenderer}>
-              <DropdownList>
-                <DropdownItem onClick={onImportOpenApi}>Import OpenAPI</DropdownItem>
-              </DropdownList>
-            </Dropdown>
           </div>
         </CardHeader>
         <CardBody className="rest-dsl-page-panel-body">

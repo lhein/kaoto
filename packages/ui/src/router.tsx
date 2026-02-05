@@ -28,6 +28,10 @@ export const router = createHashRouter([
         lazy: async () => import('./pages/RestDsl'),
       },
       {
+        path: Links.RestImport,
+        lazy: async () => import('./pages/RestDslImport'),
+      },
+      {
         path: Links.Catalog,
         lazy: async () => import('./pages/Catalog'),
       },

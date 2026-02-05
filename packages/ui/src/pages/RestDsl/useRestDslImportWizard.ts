@@ -1,11 +1,13 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { parse as parseYaml } from 'yaml';
 
+import { CamelResourceFactory } from '../../models/camel/camel-resource-factory';
 import { EntityType } from '../../models/camel/entities';
 import { REST_DSL_VERBS } from '../../models/special-processors.constants';
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
 import { CamelRouteVisualEntity } from '../../models/visualization/flows/camel-route-visual-entity';
 import { EntitiesContext, SettingsContext } from '../../providers';
+import { SourceCodeContext } from '../../providers/source-code.provider';
 import {
   ApicurioArtifact,
   ApicurioArtifactSearchResult,
@@ -46,11 +48,12 @@ type UseRestDslImportWizardArgs = {
 export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs) => {
   const entitiesContext = useContext(EntitiesContext);
   const settingsAdapter = useContext(SettingsContext);
+  const sourceCode = useContext(SourceCodeContext);
   const apicurioRegistryUrl = settingsAdapter.getSettings().apicurioRegistryUrl;
 
   const [importOperations, setImportOperations] = useState<ImportOperation[]>([]);
   const [openApiLoadSource, setOpenApiLoadSource] = useState<ImportLoadSource>(undefined);
-  const [importSource, setImportSource] = useState<ImportSourceOption>('uri');
+  const [importSource, setImportSource] = useState<ImportSourceOption>('file');
   const [importCreateRest, setImportCreateRest] = useState(false);
   const [importCreateRoutes, setImportCreateRoutes] = useState(true);
   const [importSelectAll, setImportSelectAll] = useState(true);
@@ -192,16 +195,6 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
     setFilteredApicurioArtifacts(apicurioArtifacts.filter((artifact) => artifact.name.toLowerCase().includes(lowered)));
   }, [apicurioArtifacts, apicurioSearch]);
 
-  useEffect(() => {
-    if (!importStatus) return;
-    const timeoutId = globalThis.setTimeout(() => {
-      setImportStatus(null);
-    }, 5000);
-    return () => {
-      globalThis.clearTimeout(timeoutId);
-    };
-  }, [importStatus]);
-
   const handleFetchOpenApiSpec = useCallback(async () => {
     const trimmed = openApiSpecUri.trim();
     if (!trimmed) {
@@ -259,15 +252,73 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
     [parseOpenApiSpec],
   );
 
-  const handleToggleSelectAllOperations = useCallback((checked: boolean) => {
-    setImportSelectAll(checked);
-    setImportOperations((prev) =>
-      prev.map((operation) => ({
-        ...operation,
-        selected: checked,
-      })),
-    );
-  }, []);
+  const importOperationsWithRouteExists = useMemo(() => {
+    const routeNames = new Set<string>();
+    const visualRoutes = entitiesContext?.visualEntities?.filter((entity) => entity.type === EntityType.Route) ?? [];
+    if (visualRoutes.length > 0) {
+      visualRoutes.forEach((entity) => {
+        const routeEntity = entity as CamelRouteVisualEntity;
+        const uri = routeEntity.entityDef?.route?.from?.uri ?? '';
+        if (uri.startsWith('direct:')) {
+          routeNames.add(uri.slice('direct:'.length).split('?')[0]);
+        }
+      });
+    } else if (sourceCode) {
+      const camelResource = CamelResourceFactory.createCamelResource(sourceCode);
+      const routeEntities = camelResource.getEntities().filter((entity) => entity.type === EntityType.Route);
+      routeEntities.forEach((entity) => {
+        const model = entity.toJSON() as {
+          route?: { id?: string; from?: { uri?: string; parameters?: { name?: string } } };
+          id?: string;
+          from?: { uri?: string; parameters?: { name?: string } };
+        };
+        const routeModel = model.route ?? model;
+        const uri = routeModel.from?.uri ?? '';
+        if (uri.startsWith('direct:')) {
+          routeNames.add(uri.slice('direct:'.length).split('?')[0]);
+          return;
+        }
+        if (uri === 'direct' && routeModel.from?.parameters?.name) {
+          routeNames.add(routeModel.from.parameters.name);
+        }
+      });
+    }
+
+    return importOperations.map((operation) => ({
+      ...operation,
+      routeExists: routeNames.has(operation.operationId),
+    }));
+  }, [entitiesContext?.visualEntities, importOperations, sourceCode]);
+
+  const handleToggleSelectAllOperations = useCallback(
+    (checked: boolean) => {
+      const routeExistsByKey = new Map(
+        importOperationsWithRouteExists.map((operation) => [
+          `${operation.operationId}-${operation.method}-${operation.path}`,
+          operation.routeExists,
+        ]),
+      );
+
+      setImportOperations((prev) => {
+        const next = prev.map((operation) => {
+          const key = `${operation.operationId}-${operation.method}-${operation.path}`;
+          const isRouteExists = routeExistsByKey.get(key) ?? false;
+          return {
+            ...operation,
+            selected: isRouteExists ? false : checked,
+          };
+        });
+        const selectableKeys = next.filter((operation) => {
+          const key = `${operation.operationId}-${operation.method}-${operation.path}`;
+          return !(routeExistsByKey.get(key) ?? false);
+        });
+        const allSelected = selectableKeys.length > 0 && selectableKeys.every((operation) => operation.selected);
+        setImportSelectAll(allSelected);
+        return next;
+      });
+    },
+    [importOperationsWithRouteExists],
+  );
 
   const handleToggleOperation = useCallback((operationId: string, method: RestVerb, path: string, checked: boolean) => {
     setImportOperations((prev) => {
@@ -281,22 +332,22 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
     });
   }, []);
 
-  const handleImportOpenApi = useCallback(() => {
+  const handleImportOpenApi = useCallback((): boolean => {
     if (!entitiesContext || (!importCreateRest && !importCreateRoutes)) {
       setImportStatus({
         type: 'error',
         message: 'Import failed. Choose at least one option to generate.',
       });
-      return;
+      return false;
     }
-    const selectedOperations = importOperations.filter((operation) => operation.selected);
+    const selectedOperations = importOperationsWithRouteExists.filter((operation) => operation.selected);
     if (selectedOperations.length === 0) {
       setOpenApiError('Select at least one operation to import.');
       setImportStatus({
         type: 'error',
         message: 'Import failed. Select at least one operation.',
       });
-      return;
+      return false;
     }
 
     const camelResource = entitiesContext.camelResource as {
@@ -363,7 +414,8 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
       type: 'success',
       message: `Import succeeded. ${selectedOperations.length} operation${selectedOperations.length === 1 ? '' : 's'} added.`,
     });
-  }, [entitiesContext, importCreateRest, importCreateRoutes, importOperations, openApiSpecUri]);
+    return true;
+  }, [entitiesContext, importCreateRest, importCreateRoutes, importOperationsWithRouteExists, openApiSpecUri]);
 
   const handleImportSourceChange = useCallback((nextSource: ImportSourceOption) => {
     setImportSource(nextSource);
@@ -423,22 +475,6 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
   const handleParseOpenApiSpec = useCallback(() => {
     parseOpenApiSpec(openApiSpecText);
   }, [openApiSpecText, parseOpenApiSpec]);
-
-  const importOperationsWithRouteExists = useMemo(() => {
-    if (!entitiesContext) return importOperations;
-    const routes = entitiesContext.entities
-      .filter((entity) => entity.type === EntityType.Route)
-      .map((entity) => {
-        const model = entity.toJSON() as { route?: { from?: { uri?: string } } };
-        return model.route?.from?.uri;
-      })
-      .filter((uri): uri is string => typeof uri === 'string');
-
-    return importOperations.map((operation) => ({
-      ...operation,
-      routeExists: routes.includes(`direct:${operation.operationId}`),
-    }));
-  }, [entitiesContext, importOperations]);
 
   return {
     openApiSpecUri,

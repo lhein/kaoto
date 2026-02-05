@@ -1,6 +1,6 @@
 import '../RestDsl/RestDslPage.scss';
 
-import { Alert, AlertGroup, Card, CardBody, CardHeader, Title } from '@patternfly/react-core';
+import { Card, CardBody, CardHeader, Title } from '@patternfly/react-core';
 import { FunctionComponent, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,21 +17,13 @@ export const RestDslImportPage: FunctionComponent = () => {
     navigate(Links.Rest);
   }, [navigate, wizard]);
 
-  const handleImportFinish = useCallback(() => {
-    wizard.handleImportOpenApi();
-  }, [wizard]);
+  const handleGoToDesigner = useCallback(() => {
+    wizard.resetImportWizard();
+    navigate(Links.Home);
+  }, [navigate, wizard]);
 
   return (
     <>
-      <AlertGroup isToast className="rest-dsl-page-toast">
-        {wizard.importStatus && (
-          <Alert
-            variant={wizard.importStatus.type === 'success' ? 'success' : 'danger'}
-            title={wizard.importStatus.message}
-            isLiveRegion
-          />
-        )}
-      </AlertGroup>
       <div className="rest-dsl-page">
         <Card className="rest-dsl-page-panel">
           <CardHeader className="rest-dsl-page-panel-header">
@@ -59,6 +51,7 @@ export const RestDslImportPage: FunctionComponent = () => {
               importCreateRoutes={wizard.importCreateRoutes}
               importSelectAll={wizard.importSelectAll}
               importOperations={wizard.importOperations}
+              importStatus={wizard.importStatus}
               openApiLoadSource={wizard.openApiLoadSource}
               openApiFileInputRef={wizard.openApiFileInputRef}
               onClose={handleClose}
@@ -77,7 +70,8 @@ export const RestDslImportPage: FunctionComponent = () => {
               onFetchApicurioArtifacts={wizard.fetchApicurioArtifacts}
               onSelectApicurioArtifact={wizard.setSelectedApicurioId}
               onWizardNext={wizard.handleWizardNext}
-              onImportOpenApi={handleImportFinish}
+              onImportOpenApi={wizard.handleImportOpenApi}
+              onGoToDesigner={handleGoToDesigner}
             />
           </CardBody>
         </Card>

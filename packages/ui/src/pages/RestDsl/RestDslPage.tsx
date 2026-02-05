@@ -1298,6 +1298,7 @@ export const RestDslPage: FunctionComponent = () => {
           importCreateRoutes={importCreateRoutes}
           importSelectAll={importSelectAll}
           importOperations={importOperations}
+          importStatus={importStatus}
           openApiLoadSource={openApiLoadSource}
           openApiFileInputRef={openApiFileInputRef}
           onClose={closeImportOpenApi}
@@ -1316,7 +1317,11 @@ export const RestDslPage: FunctionComponent = () => {
           onFetchApicurioArtifacts={fetchApicurioArtifacts}
           onSelectApicurioArtifact={setSelectedApicurioId}
           onWizardNext={handleWizardNext}
-          onImportOpenApi={handleImportOpenApi}
+          onImportOpenApi={() => {
+            handleImportOpenApi();
+            return true;
+          }}
+          onGoToDesigner={() => navigate(Links.Home)}
         />
       </div>
     </ActionConfirmationModalContextProvider>

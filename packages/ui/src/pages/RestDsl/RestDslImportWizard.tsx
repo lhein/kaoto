@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Checkbox,
   Form,
@@ -25,13 +26,17 @@ import { ApicurioArtifact, ImportLoadSource, ImportOperation, ImportSourceOption
 type ImportWizardFooterProps = {
   isSourceStep: boolean;
   isOperationsStep: boolean;
+  isResultStep: boolean;
   isImportBusy: boolean;
   isOpenApiParsed: boolean;
   importCreateRest: boolean;
   importCreateRoutes: boolean;
   onBack: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
   onNext: (event: MouseEvent<HTMLButtonElement>) => Promise<boolean>;
-  onFinish: () => void;
+  onFinish: () => boolean;
+  onFinishSuccess: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  onClose: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  onGoToDesigner: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 };
 
 type WizardFooterRenderParams = {
@@ -44,6 +49,7 @@ type WizardFooterRenderParams = {
 const ImportWizardFooter: FunctionComponent<ImportWizardFooterProps> = ({
   isSourceStep,
   isOperationsStep,
+  isResultStep,
   isImportBusy,
   isOpenApiParsed,
   importCreateRest,
@@ -51,10 +57,16 @@ const ImportWizardFooter: FunctionComponent<ImportWizardFooterProps> = ({
   onBack,
   onNext,
   onFinish,
+  onFinishSuccess,
+  onClose,
+  onGoToDesigner,
 }) => {
   const handleNextClick = async (event: MouseEvent<HTMLButtonElement>) => {
     if (isOperationsStep) {
-      onFinish();
+      const ok = onFinish();
+      if (ok) {
+        await onFinishSuccess(event);
+      }
       return;
     }
     await onNext(event);
@@ -62,42 +74,79 @@ const ImportWizardFooter: FunctionComponent<ImportWizardFooterProps> = ({
 
   return (
     <WizardFooterWrapper className="rest-dsl-page-import-footer">
-      <Button variant="secondary" onClick={onBack} isDisabled={isSourceStep || isImportBusy}>
-        Back
-      </Button>
-      <Button
-        variant="primary"
-        onClick={handleNextClick}
-        isDisabled={
-          isImportBusy || (isOperationsStep && (!isOpenApiParsed || (!importCreateRest && !importCreateRoutes)))
-        }
-      >
-        {isOperationsStep ? 'Finish' : 'Next'}
-      </Button>
+      {!isResultStep && (
+        <Button variant="secondary" onClick={onBack} isDisabled={isSourceStep || isImportBusy}>
+          Back
+        </Button>
+      )}
+      {isResultStep ? (
+        <>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              onGoToDesigner(event);
+            }}
+          >
+            Go to Designer
+          </Button>
+          <Button variant="primary" onClick={onClose}>
+            Go to Rest Editor
+          </Button>
+        </>
+      ) : (
+        <Button
+          variant="primary"
+          onClick={handleNextClick}
+          isDisabled={
+            isImportBusy || (isOperationsStep && (!isOpenApiParsed || (!importCreateRest && !importCreateRoutes)))
+          }
+        >
+          {isOperationsStep ? 'Import' : 'Next'}
+        </Button>
+      )}
     </WizardFooterWrapper>
   );
 };
 
 const renderImportWizardFooter = (
   params: WizardFooterRenderParams,
-  footerState: Omit<ImportWizardFooterProps, 'isSourceStep' | 'isOperationsStep' | 'onBack' | 'onNext' | 'onFinish'> & {
-    onFinish: () => void;
+  footerState: Omit<
+    ImportWizardFooterProps,
+    | 'isSourceStep'
+    | 'isOperationsStep'
+    | 'isResultStep'
+    | 'onBack'
+    | 'onNext'
+    | 'onFinish'
+    | 'onClose'
+    | 'onFinishSuccess'
+  > & {
+    onFinish: () => boolean;
+    onClose: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
     onNext: (event: MouseEvent<HTMLButtonElement>) => Promise<boolean>;
+    onGoToDesigner: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
   },
 ) => {
   const isSourceStep = params.activeStep.id === 'source';
   const isOperationsStep = params.activeStep.id === 'operations';
+  const isResultStep = params.activeStep.id === 'result';
 
   return (
     <ImportWizardFooter
       isSourceStep={isSourceStep}
       isOperationsStep={isOperationsStep}
+      isResultStep={isResultStep}
       isImportBusy={footerState.isImportBusy}
       isOpenApiParsed={footerState.isOpenApiParsed}
       importCreateRest={footerState.importCreateRest}
       importCreateRoutes={footerState.importCreateRoutes}
       onBack={(event) => params.goToPrevStep(event)}
       onFinish={footerState.onFinish}
+      onFinishSuccess={(event) => params.goToNextStep(event)}
+      onClose={footerState.onClose}
+      onGoToDesigner={footerState.onGoToDesigner}
       onNext={async (event) => {
         const ok = await footerState.onNext(event);
         if (ok) {
@@ -127,6 +176,7 @@ type RestDslImportWizardProps = {
   importCreateRoutes: boolean;
   importSelectAll: boolean;
   importOperations: ImportOperation[];
+  importStatus: { type: 'success' | 'error'; message: string } | null;
   openApiLoadSource: ImportLoadSource;
   openApiFileInputRef: RefObject<HTMLInputElement | null>;
   onClose: () => void;
@@ -145,7 +195,8 @@ type RestDslImportWizardProps = {
   onFetchApicurioArtifacts: () => void;
   onSelectApicurioArtifact: (artifactId: string) => void;
   onWizardNext: () => Promise<boolean>;
-  onImportOpenApi: () => void;
+  onImportOpenApi: () => boolean;
+  onGoToDesigner: () => void;
 };
 
 type RestDslImportWizardContentProps = Omit<RestDslImportWizardProps, 'isOpen'>;
@@ -167,6 +218,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
   importCreateRoutes,
   importSelectAll,
   importOperations,
+  importStatus,
   openApiLoadSource,
   openApiFileInputRef,
   onClose,
@@ -186,6 +238,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
   onSelectApicurioArtifact,
   onWizardNext,
   onImportOpenApi,
+  onGoToDesigner,
 }) => (
   <Wizard
     onClose={onClose}
@@ -199,6 +252,8 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
           importCreateRest,
           importCreateRoutes,
           onFinish: onImportOpenApi,
+          onClose,
+          onGoToDesigner: (_event) => onGoToDesigner(),
           onNext: async (_event) => onWizardNext(),
         },
       )
@@ -207,6 +262,32 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
     <WizardStep name="Import source" id="source">
       <Form>
         <FormGroup label="Choose import source" fieldId="rest-openapi-import-source">
+          <Radio
+            id="rest-openapi-import-file"
+            name="rest-openapi-import-source"
+            label="Upload file"
+            isChecked={importSource === 'file'}
+            onChange={() => onImportSourceChange('file')}
+          />
+          {importSource === 'file' && (
+            <div className="rest-dsl-page-import-source">
+              <Button variant="secondary" onClick={onUploadOpenApiClick}>
+                Upload
+              </Button>
+              {isOpenApiParsed && openApiLoadSource === 'file' && (
+                <span className="rest-dsl-page-import-success">
+                  <CheckCircleIcon /> Loaded
+                </span>
+              )}
+              <input
+                ref={openApiFileInputRef}
+                type="file"
+                accept=".json,.yaml,.yml,application/json,application/yaml,application/x-yaml,text/yaml,text/x-yaml"
+                onChange={onUploadOpenApiFile}
+                className="rest-dsl-page-import-file-input"
+              />
+            </div>
+          )}
           <Radio
             id="rest-openapi-import-uri"
             name="rest-openapi-import-source"
@@ -235,32 +316,6 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                   <CheckCircleIcon /> Loaded
                 </span>
               )}
-            </div>
-          )}
-          <Radio
-            id="rest-openapi-import-file"
-            name="rest-openapi-import-source"
-            label="Upload file"
-            isChecked={importSource === 'file'}
-            onChange={() => onImportSourceChange('file')}
-          />
-          {importSource === 'file' && (
-            <div className="rest-dsl-page-import-source">
-              <Button variant="secondary" onClick={onUploadOpenApiClick}>
-                Upload
-              </Button>
-              {isOpenApiParsed && openApiLoadSource === 'file' && (
-                <span className="rest-dsl-page-import-success">
-                  <CheckCircleIcon /> Loaded
-                </span>
-              )}
-              <input
-                ref={openApiFileInputRef}
-                type="file"
-                accept=".json,.yaml,.yml,application/json,application/yaml,application/x-yaml,text/yaml,text/x-yaml"
-                onChange={onUploadOpenApiFile}
-                className="rest-dsl-page-import-file-input"
-              />
             </div>
           )}
           <Radio
@@ -374,13 +429,15 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                     <div className="rest-dsl-page-import-row">
                       <Checkbox
                         id={`rest-openapi-${operation.operationId}-${operation.method}`}
-                        label={`${operation.method.toUpperCase()} ${operation.path}`}
-                        isChecked={operation.selected}
+                        label={`${operation.method.toUpperCase()} ${operation.path}${
+                          operation.routeExists ? ' - Route exists' : ''
+                        }`}
+                        isChecked={operation.routeExists ? false : operation.selected}
+                        isDisabled={operation.routeExists}
                         onChange={(_event, checked) =>
                           onToggleOperation(operation.operationId, operation.method, operation.path, checked)
                         }
                       />
-                      {operation.routeExists && <span className="rest-dsl-page-import-note">Route exists</span>}
                     </div>
                   </ListItem>
                 ))}
@@ -389,6 +446,13 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
           </div>
         )}
       </Form>
+    </WizardStep>
+    <WizardStep name="Result" id="result">
+      <Alert
+        variant={importStatus?.type === 'success' ? 'success' : 'danger'}
+        title={importStatus?.message ?? 'No import results yet.'}
+        isInline
+      />
     </WizardStep>
   </Wizard>
 );

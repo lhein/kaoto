@@ -28,9 +28,7 @@ const getChildren = (routes: Array<{ children?: unknown[] }>) =>
 describe('router', () => {
   it('defines the expected routes and lazy loaders (datamapper disabled)', async () => {
     jest.resetModules();
-    (
-      globalThis as typeof globalThis & { __KAOTO_ENABLE_DATAMAPPER_DEBUGGER: boolean }
-    ).__KAOTO_ENABLE_DATAMAPPER_DEBUGGER = false;
+    process.env.VITE_ENABLE_DATAMAPPER_DEBUGGER = 'false';
     const createHashRouter = jest.fn((routes: unknown) => routes);
     jest.doMock('react-router-dom', () => ({ createHashRouter }));
     mockLazyModules();
@@ -59,9 +57,7 @@ describe('router', () => {
 
   it('loads datamapper debug page when enabled', async () => {
     jest.resetModules();
-    (
-      globalThis as typeof globalThis & { __KAOTO_ENABLE_DATAMAPPER_DEBUGGER: boolean }
-    ).__KAOTO_ENABLE_DATAMAPPER_DEBUGGER = true;
+    process.env.VITE_ENABLE_DATAMAPPER_DEBUGGER = 'true';
     const createHashRouter = jest.fn((routes: unknown) => routes);
     jest.doMock('react-router-dom', () => ({ createHashRouter }));
     mockLazyModules();

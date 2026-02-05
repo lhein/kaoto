@@ -41,9 +41,6 @@ export default defineConfig(async () => {
       __GIT_HASH: JSON.stringify(lastCommitInfo.hash),
       __GIT_DATE: JSON.stringify(lastCommitInfo.date),
       __KAOTO_VERSION: JSON.stringify(packageJson.version),
-      __KAOTO_ENABLE_DATAMAPPER_DEBUGGER: JSON.stringify(
-        process.env.VITE_ENABLE_DATAMAPPER_DEBUGGER === 'true',
-      ),
     },
     build: {
       outDir,

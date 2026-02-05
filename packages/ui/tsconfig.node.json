@@ -1,12 +1,6 @@
 {
   "compilerOptions": {
-    "allowJs": true,
     "composite": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "declarationDir": "./dist-node",
-    "outDir": "./dist-node",
-    "rootDir": ".",
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",

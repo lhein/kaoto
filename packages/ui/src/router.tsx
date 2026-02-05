@@ -50,7 +50,7 @@ export const router = createHashRouter([
       {
         path: Links.DataMapper,
         lazy: async () => {
-          if (import.meta.env.VITE_ENABLE_DATAMAPPER_DEBUGGER === 'true') {
+          if (__KAOTO_ENABLE_DATAMAPPER_DEBUGGER) {
             return import('./components/DataMapper/debug/page');
           } else {
             return import('./pages/DataMapperNotYetInBrowser');

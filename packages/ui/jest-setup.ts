@@ -8,6 +8,11 @@ Object.defineProperties(globalThis, {
   TextEncoder: { value: TextEncoder },
 });
 
+Object.defineProperty(globalThis, '__KAOTO_ENABLE_DATAMAPPER_DEBUGGER', {
+  writable: true,
+  value: false,
+});
+
 // Mock ResizeObserver for components that use it
 class ResizeObserverMock {
   observe = jest.fn();

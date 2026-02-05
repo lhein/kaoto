@@ -716,25 +716,28 @@ export const RestDslPage: FunctionComponent = () => {
     openApiFileInputRef.current?.click();
   }, []);
 
-  const handleUploadOpenApiFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleUploadOpenApiFile = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    try {
-      const content = await file.text();
-      const parsed = parseOpenApiSpec(content);
-      if (parsed) {
-        setOpenApiLoadSource('file');
+      try {
+        const content = await file.text();
+        const parsed = parseOpenApiSpec(content);
+        if (parsed) {
+          setOpenApiLoadSource('file');
+        }
+        setOpenApiSpecUri(file.name);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to read the uploaded specification.';
+        setOpenApiError(message);
+        setIsOpenApiParsed(false);
+      } finally {
+        event.target.value = '';
       }
-      setOpenApiSpecUri(file.name);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to read the uploaded specification.';
-      setOpenApiError(message);
-      setIsOpenApiParsed(false);
-    } finally {
-      event.target.value = '';
-    }
-  }, []);
+    },
+    [parseOpenApiSpec],
+  );
 
   const handleToggleSelectAllOperations = useCallback((checked: boolean) => {
     setImportSelectAll(checked);
@@ -995,7 +998,7 @@ export const RestDslPage: FunctionComponent = () => {
 
   const handleVerbToggle = useCallback(() => {
     setIsVerbSelectOpen((prev) => !prev);
-  }, []);
+  }, [setNavWidth]);
 
   const handleCreateOperation = useCallback(() => {
     if (!entitiesContext || !addOperationRestId) return;

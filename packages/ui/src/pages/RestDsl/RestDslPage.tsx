@@ -20,8 +20,9 @@ import {
   Split,
   TextInput,
 } from '@patternfly/react-core';
-import { EllipsisVIcon, HelpIcon } from '@patternfly/react-icons';
+import { HelpIcon } from '@patternfly/react-icons';
 import { FunctionComponent, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { parse as parseYaml } from 'yaml';
 
 import { getCamelRandomId } from '../../camel-utils/camel-random-id';
@@ -82,27 +83,6 @@ const OperationTypeHelp: FunctionComponent = () => (
   >
     <Button variant="plain" aria-label="More info about Operation Type" icon={<HelpIcon />} />
   </Popover>
-);
-
-type RestDslImportMenuToggleProps = {
-  toggleRef: React.Ref<HTMLButtonElement>;
-  onToggle: () => void;
-};
-
-const RestDslImportMenuToggle: FunctionComponent<RestDslImportMenuToggleProps> = ({ toggleRef, onToggle }) => {
-  return (
-    <MenuToggle
-      ref={toggleRef}
-      variant="plain"
-      aria-label="Rest DSL actions"
-      onClick={onToggle}
-      icon={<EllipsisVIcon />}
-    />
-  );
-};
-
-const createRestDslImportMenuToggleRenderer = (onToggle: () => void) => (toggleRef: React.Ref<HTMLButtonElement>) => (
-  <RestDslImportMenuToggle toggleRef={toggleRef} onToggle={onToggle} />
 );
 
 const trimUnderscoreEdges = (value: string) => {
@@ -177,6 +157,8 @@ export const RestDslPage: FunctionComponent = () => {
   const entitiesContext = useContext(EntitiesContext);
   const actionConfirmation = useContext(ActionConfirmationModalContext);
   const settingsAdapter = useContext(SettingsContext);
+  const location = useLocation();
+  const navigate = useNavigate();
   const { selectedCatalog } = useRuntimeContext();
   const catalogKey = selectedCatalog?.version ?? selectedCatalog?.name ?? 'default';
 
@@ -331,7 +313,6 @@ export const RestDslPage: FunctionComponent = () => {
   const [operationVerb, setOperationVerb] = useState<RestVerb>('get');
   const [isVerbSelectOpen, setIsVerbSelectOpen] = useState(false);
   const [isImportOpenApiOpen, setIsImportOpenApiOpen] = useState(false);
-  const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
   const [openApiSpecText, setOpenApiSpecText] = useState('');
   const [openApiSpecUri, setOpenApiSpecUri] = useState('');
   const [openApiError, setOpenApiError] = useState('');
@@ -528,18 +509,8 @@ export const RestDslPage: FunctionComponent = () => {
     setSelection({ kind: 'rest', restId });
   }, []);
 
-  const handleImportMenuToggle = useCallback(() => {
-    setIsImportMenuOpen((prev) => !prev);
-  }, []);
-
-  const importMenuToggleRenderer = useMemo(
-    () => createRestDslImportMenuToggleRenderer(handleImportMenuToggle),
-    [handleImportMenuToggle],
-  );
-
   const openImportOpenApi = useCallback(() => {
     setIsImportOpenApiOpen(true);
-    setIsImportMenuOpen(false);
     setOpenApiError('');
     setOpenApiSpecText('');
     setOpenApiSpecUri('');
@@ -555,6 +526,15 @@ export const RestDslPage: FunctionComponent = () => {
     setImportSource('uri');
     setSelectedApicurioId('');
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('import') === '1') {
+      openImportOpenApi();
+      params.delete('import');
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate, openImportOpenApi]);
 
   const closeImportOpenApi = useCallback(() => {
     setIsImportOpenApiOpen(false);
@@ -1214,10 +1194,6 @@ export const RestDslPage: FunctionComponent = () => {
         <Split className="rest-dsl-page-split" hasGutter>
           <RestDslNav
             navWidth={navWidth}
-            isImportMenuOpen={isImportMenuOpen}
-            importMenuToggleRenderer={importMenuToggleRenderer}
-            onImportMenuSelect={() => setIsImportMenuOpen(false)}
-            onImportOpenApi={openImportOpenApi}
             restConfiguration={restConfiguration}
             restEntities={restEntities}
             restMethods={REST_METHODS}

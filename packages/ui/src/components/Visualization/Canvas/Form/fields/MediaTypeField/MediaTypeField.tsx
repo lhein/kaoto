@@ -1,6 +1,20 @@
+import './MediaTypeField.scss';
+
 import { FieldProps, FieldWrapper, SchemaContext, useFieldValue } from '@kaoto/forms';
-import { MenuToggle, MenuToggleElement, Select, SelectList, SelectOption } from '@patternfly/react-core';
-import { FunctionComponent, MouseEvent, Ref, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  Button,
+  Divider,
+  MenuToggle,
+  MenuToggleElement,
+  Select,
+  SelectList,
+  SelectOption,
+  TextInput,
+} from '@patternfly/react-core';
+import { FunctionComponent, KeyboardEvent, MouseEvent, Ref, useCallback, useContext, useMemo, useState } from 'react';
+
+import { useLocalStorage } from '../../../../../../hooks/local-storage.hook';
+import { LocalStorageKeys } from '../../../../../../models/local-storage-keys';
 
 const COMMON_MEDIA_TYPES = [
   'application/json',
@@ -53,13 +67,16 @@ export const MediaTypeField: FunctionComponent<FieldProps> = ({ propName, requir
   const { schema } = useContext(SchemaContext);
   const { value, onChange, disabled } = useFieldValue<string | undefined>(propName);
   const [isOpen, setIsOpen] = useState(false);
+  const [customValue, setCustomValue] = useState('');
+  const [storedMediaTypes, setStoredMediaTypes] = useLocalStorage<string[]>(LocalStorageKeys.MediaTypes, []);
 
   const selectedValues = useMemo(() => parseMediaTypes(value), [value]);
 
   const options = useMemo(() => {
     const customValues = selectedValues.filter((item) => !COMMON_MEDIA_TYPES.includes(item));
-    return [...COMMON_MEDIA_TYPES, ...customValues];
-  }, [selectedValues]);
+    const merged = new Set<string>([...COMMON_MEDIA_TYPES, ...storedMediaTypes, ...customValues]);
+    return Array.from(merged);
+  }, [selectedValues, storedMediaTypes]);
 
   const onSelect = useCallback(
     (_event: MouseEvent | undefined, selection: string | number | undefined) => {
@@ -75,6 +92,33 @@ export const MediaTypeField: FunctionComponent<FieldProps> = ({ propName, requir
       setIsOpen(true);
     },
     [onChange, selectedValues],
+  );
+
+  const addCustomValue = useCallback(() => {
+    const trimmed = customValue.trim();
+    if (!trimmed) {
+      return;
+    }
+    const nextStored = storedMediaTypes.includes(trimmed) ? storedMediaTypes : [...storedMediaTypes, trimmed];
+    const nextValues = selectedValues.includes(trimmed) ? selectedValues : [...selectedValues, trimmed];
+
+    if (nextStored !== storedMediaTypes) {
+      setStoredMediaTypes(nextStored);
+    }
+    if (nextValues !== selectedValues) {
+      onChange(nextValues.join(', '));
+    }
+    setCustomValue('');
+  }, [customValue, onChange, selectedValues, setStoredMediaTypes, storedMediaTypes]);
+
+  const onCustomKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addCustomValue();
+      }
+    },
+    [addCustomValue],
   );
 
   const toggle = (toggleRef: Ref<MenuToggleElement>) => (
@@ -105,13 +149,27 @@ export const MediaTypeField: FunctionComponent<FieldProps> = ({ propName, requir
         onOpenChange={(nextOpen) => setIsOpen(nextOpen)}
         toggle={toggle}
       >
-        <SelectList>
+        <SelectList className="media-type-field-list">
           {options.map((option) => (
             <SelectOption key={option} itemId={option} hasCheckbox isSelected={selectedValues.includes(option)}>
               {option}
             </SelectOption>
           ))}
         </SelectList>
+        <Divider />
+        <div className="media-type-field-custom">
+          <TextInput
+            aria-label="Custom media type"
+            value={customValue}
+            onChange={(_event, nextValue) => setCustomValue(nextValue)}
+            onKeyDown={onCustomKeyDown}
+            placeholder="Add custom media type"
+            isDisabled={disabled}
+          />
+          <Button variant="secondary" onClick={addCustomValue} isDisabled={disabled || customValue.trim() === ''}>
+            Add
+          </Button>
+        </div>
       </Select>
     </FieldWrapper>
   );

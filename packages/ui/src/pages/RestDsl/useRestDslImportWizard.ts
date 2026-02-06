@@ -17,7 +17,188 @@ import {
   RestVerb,
 } from './restDslTypes';
 
-const buildOperationsFromSpec = (spec: Record<string, unknown>): ImportOperation[] => {
+const mapOpenApiParameterToCamelParam = (parameter: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const name = typeof parameter.name === 'string' ? parameter.name : undefined;
+  const location = typeof parameter.in === 'string' ? parameter.in : undefined;
+  if (!name || !location) return undefined;
+
+  const schema = (parameter.schema as Record<string, unknown> | undefined) ?? {};
+  const mapped: Record<string, unknown> = {
+    name,
+    type: location,
+  };
+
+  if (typeof parameter.required === 'boolean') {
+    mapped.required = parameter.required;
+  }
+  if (typeof parameter.description === 'string' && parameter.description.trim()) {
+    mapped.description = parameter.description;
+  }
+  if (typeof schema.type === 'string') {
+    mapped.dataType = schema.type;
+  }
+  if ('default' in schema) {
+    mapped.defaultValue = schema.default;
+  }
+
+  const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+  if (enumValues?.length) {
+    mapped.allowableValues = enumValues.map((value) => ({ value: String(value) }));
+  }
+
+  return mapped;
+};
+
+const buildCamelParamList = (
+  pathItem: Record<string, unknown>,
+  operation: Record<string, unknown>,
+): Record<string, unknown>[] => {
+  const merged = new Map<string, Record<string, unknown>>();
+  const addParameters = (parameters: unknown) => {
+    if (!Array.isArray(parameters)) return;
+    parameters.forEach((parameter) => {
+      if (!parameter || typeof parameter !== 'object') return;
+      const asRecord = parameter as Record<string, unknown>;
+      const name = typeof asRecord.name === 'string' ? asRecord.name : '';
+      const location = typeof asRecord.in === 'string' ? asRecord.in : '';
+      if (!name || !location) return;
+      merged.set(`${location}:${name}`, asRecord);
+    });
+  };
+
+  addParameters(pathItem.parameters);
+  addParameters(operation.parameters);
+
+  return Array.from(merged.values())
+    .map(mapOpenApiParameterToCamelParam)
+    .filter((item): item is Record<string, unknown> => Boolean(item));
+};
+
+const buildCamelSecurityList = (operation: Record<string, unknown>): Record<string, unknown>[] => {
+  const security = operation.security;
+  if (!Array.isArray(security)) return [];
+
+  const mapped: Record<string, unknown>[] = [];
+  security.forEach((securityRequirement) => {
+    if (!securityRequirement || typeof securityRequirement !== 'object') return;
+    Object.entries(securityRequirement as Record<string, unknown>).forEach(([key, value]) => {
+      const scopes = Array.isArray(value) ? value.map((scope) => String(scope)).join(',') : '';
+      mapped.push(scopes ? { key, scopes } : { key });
+    });
+  });
+
+  return mapped;
+};
+
+const buildCamelResponseMessageList = (operation: Record<string, unknown>): Record<string, unknown>[] => {
+  const responses = operation.responses as Record<string, unknown> | undefined;
+  if (!responses || typeof responses !== 'object') return [];
+
+  return Object.entries(responses).map(([code, response]) => {
+    const responseRecord = (response as Record<string, unknown> | undefined) ?? {};
+    const mapped: Record<string, unknown> = { code: String(code) };
+
+    if (typeof responseRecord.description === 'string' && responseRecord.description.trim()) {
+      mapped.message = responseRecord.description;
+    }
+
+    const headers = responseRecord.headers as Record<string, unknown> | undefined;
+    if (headers && typeof headers === 'object') {
+      const mappedHeaders = Object.entries(headers)
+        .map(([name, headerValue]) => {
+          const headerRecord = (headerValue as Record<string, unknown> | undefined) ?? {};
+          const schema = (headerRecord.schema as Record<string, unknown> | undefined) ?? {};
+          const mappedHeader: Record<string, unknown> = { name };
+          if (typeof headerRecord.description === 'string' && headerRecord.description.trim()) {
+            mappedHeader.description = headerRecord.description;
+          }
+          const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+          if (enumValues?.length) {
+            mappedHeader.allowableValues = enumValues.map((value) => ({ value: String(value) }));
+          }
+          return mappedHeader;
+        })
+        .filter((header) => Boolean(header.name));
+
+      if (mappedHeaders.length > 0) {
+        mapped.header = mappedHeaders;
+      }
+    }
+
+    return mapped;
+  });
+};
+
+const getOperationKey = (operation: Pick<ImportOperation, 'operationId' | 'method' | 'path'>): string =>
+  `${operation.operationId}-${operation.method}-${operation.path}`;
+
+export const applyRouteExistsToOperations = (
+  operations: ImportOperation[],
+  routeNames: Set<string>,
+): ImportOperation[] =>
+  operations.map((operation) => ({
+    ...operation,
+    routeExists: routeNames.has(operation.operationId),
+  }));
+
+export const toggleSelectAllOperations = (operations: ImportOperation[], checked: boolean): ImportOperation[] =>
+  operations.map((operation) => ({
+    ...operation,
+    selected: operation.routeExists ? false : checked,
+  }));
+
+export const buildRestDefinitionFromOperations = (
+  operations: ImportOperation[],
+  restId: string,
+  openApiSpecUri: string,
+): Record<string, unknown> => {
+  const restDefinition: Record<string, unknown> = { id: restId };
+  const trimmedSpecUri = openApiSpecUri.trim();
+  if (trimmedSpecUri) {
+    restDefinition.openApi = { specification: trimmedSpecUri };
+  }
+
+  operations.forEach((operation) => {
+    const methodKey = operation.method;
+    const list = (restDefinition[methodKey] as Record<string, unknown>[] | undefined) ?? [];
+    const operationDefinition: Record<string, unknown> = {
+      id: operation.operationId,
+      path: operation.path,
+      routeId: `route-${operation.operationId}`,
+      to: `direct:${operation.operationId}`,
+    };
+    const operationDescription = operation.description?.trim();
+    if (operationDescription) {
+      operationDefinition.description = operationDescription;
+    }
+    const operationConsumes = operation.consumes?.trim();
+    if (operationConsumes) {
+      operationDefinition.consumes = operationConsumes;
+    }
+    const operationProduces = operation.produces?.trim();
+    if (operationProduces) {
+      operationDefinition.produces = operationProduces;
+    }
+    if (operation.param && operation.param.length > 0) {
+      operationDefinition.param = operation.param;
+    }
+    if (operation.responseMessage && operation.responseMessage.length > 0) {
+      operationDefinition.responseMessage = operation.responseMessage;
+    }
+    if (operation.security && operation.security.length > 0) {
+      operationDefinition.security = operation.security;
+    }
+    if (typeof operation.deprecated === 'boolean') {
+      operationDefinition.deprecated = operation.deprecated;
+    }
+    list.push(operationDefinition);
+    restDefinition[methodKey] = list;
+  });
+
+  return restDefinition;
+};
+
+export const buildOperationsFromSpec = (spec: Record<string, unknown>): ImportOperation[] => {
   const operations: ImportOperation[] = [];
   const paths = spec.paths as Record<string, unknown> | undefined;
   if (!paths) return operations;
@@ -28,10 +209,34 @@ const buildOperationsFromSpec = (spec: Record<string, unknown>): ImportOperation
       const op = (definition as Record<string, unknown>)[method] as Record<string, unknown> | undefined;
       if (!op) return;
       const operationId = (op.operationId as string | undefined) ?? `${method}-${pathKey}`;
+      const description =
+        typeof op.description === 'string' ? op.description : typeof op.summary === 'string' ? op.summary : undefined;
+      const requestBodyContent = (op.requestBody as { content?: Record<string, unknown> } | undefined)?.content;
+      const consumes = requestBodyContent ? Object.keys(requestBodyContent).join(',') : undefined;
+
+      const responseEntries = Object.entries((op.responses as Record<string, unknown> | undefined) ?? {});
+      const successResponse = responseEntries.find(([statusCode]) => /^2\d\d$/.test(statusCode))?.[1] as
+        | { content?: Record<string, unknown> }
+        | undefined;
+      const fallbackResponse = responseEntries[0]?.[1] as { content?: Record<string, unknown> } | undefined;
+      const responseContent = successResponse?.content ?? fallbackResponse?.content;
+      const produces = responseContent ? Object.keys(responseContent).join(',') : undefined;
+      const param = buildCamelParamList(definition as Record<string, unknown>, op);
+      const security = buildCamelSecurityList(op);
+      const responseMessage = buildCamelResponseMessageList(op);
+      const deprecated = typeof op.deprecated === 'boolean' ? op.deprecated : undefined;
+
       operations.push({
         operationId,
         method,
         path: pathKey,
+        description,
+        consumes,
+        produces,
+        param,
+        security,
+        responseMessage,
+        deprecated,
         selected: true,
         routeExists: false,
       });
@@ -102,7 +307,6 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
       if (!spec || typeof spec !== 'object' || !('paths' in spec)) {
         throw new Error('Invalid spec');
       }
-
       setOpenApiSpecText(JSON.stringify(spec, null, 2));
       const operations = buildOperationsFromSpec(spec);
       if (operations.length === 0) {
@@ -284,35 +488,22 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
       });
     }
 
-    return importOperations.map((operation) => ({
-      ...operation,
-      routeExists: routeNames.has(operation.operationId),
-    }));
+    return applyRouteExistsToOperations(importOperations, routeNames);
   }, [entitiesContext?.visualEntities, importOperations, sourceCode]);
 
   const handleToggleSelectAllOperations = useCallback(
     (checked: boolean) => {
       const routeExistsByKey = new Map(
-        importOperationsWithRouteExists.map((operation) => [
-          `${operation.operationId}-${operation.method}-${operation.path}`,
-          operation.routeExists,
-        ]),
+        importOperationsWithRouteExists.map((operation) => [getOperationKey(operation), operation.routeExists]),
       );
-
       setImportOperations((prev) => {
-        const next = prev.map((operation) => {
-          const key = `${operation.operationId}-${operation.method}-${operation.path}`;
-          const isRouteExists = routeExistsByKey.get(key) ?? false;
-          return {
-            ...operation,
-            selected: isRouteExists ? false : checked,
-          };
-        });
-        const selectableKeys = next.filter((operation) => {
-          const key = `${operation.operationId}-${operation.method}-${operation.path}`;
-          return !(routeExistsByKey.get(key) ?? false);
-        });
-        const allSelected = selectableKeys.length > 0 && selectableKeys.every((operation) => operation.selected);
+        const withRouteExists = prev.map((operation) => ({
+          ...operation,
+          routeExists: routeExistsByKey.get(getOperationKey(operation)) ?? false,
+        }));
+        const next = toggleSelectAllOperations(withRouteExists, checked);
+        const selectable = next.filter((operation) => !operation.routeExists);
+        const allSelected = selectable.length > 0 && selectable.every((operation) => operation.selected);
         setImportSelectAll(allSelected);
         return next;
       });
@@ -387,24 +578,7 @@ export const useRestDslImportWizard = ({ isActive }: UseRestDslImportWizardArgs)
         | undefined;
 
       if (restEntity) {
-        const restDefinition: Record<string, unknown> = { id: newRestId };
-        const trimmedSpecUri = openApiSpecUri.trim();
-        if (trimmedSpecUri) {
-          restDefinition.openApi = { specification: trimmedSpecUri };
-        }
-
-        selectedOperations.forEach((operation) => {
-          const methodKey = operation.method;
-          const list = (restDefinition[methodKey] as Record<string, unknown>[] | undefined) ?? [];
-          list.push({
-            id: operation.operationId,
-            path: operation.path,
-            routeId: `route-${operation.operationId}`,
-            to: `direct:${operation.operationId}`,
-          });
-          restDefinition[methodKey] = list;
-        });
-
+        const restDefinition = buildRestDefinitionFromOperations(selectedOperations, newRestId, openApiSpecUri);
         restEntity.updateModel(restEntity.getRootPath(), restDefinition);
       }
     }

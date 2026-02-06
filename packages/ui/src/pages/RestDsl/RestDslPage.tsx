@@ -1356,8 +1356,8 @@ export const RestDslPage: FunctionComponent = () => {
             onDeleteOperation={handleDeleteOperation}
             getListItemClass={getListItemClass}
           />
-          <button
-            type="button"
+          <Button
+            variant="plain"
             className="rest-dsl-page-resize-handle"
             onMouseDown={handleResizeStart}
             aria-label="Resize panels"
@@ -1366,7 +1366,7 @@ export const RestDslPage: FunctionComponent = () => {
             <span className="rest-dsl-page-resize-grip" aria-hidden="true">
               ||
             </span>
-          </button>
+          </Button>
           <RestDslDetails
             formKey={formKey}
             selectedFormState={selectedFormState}

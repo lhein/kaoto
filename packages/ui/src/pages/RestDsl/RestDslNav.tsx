@@ -29,32 +29,43 @@ const RestOperationList: FunctionComponent<RestOperationListProps> = ({
     const operations = restDefinition[verb] as Array<{ path?: string; id?: string }> | undefined;
     if (!operations || operations.length === 0) return [];
 
-    return operations.map((operation, index) => (
-      <ListItem key={`${restEntity.id}-${verb}-${index}`}>
-        <div className="rest-dsl-page-operation-row">
-          <button
-            className={getListItemClass(selection, {
-              kind: 'operation',
-              restId: restEntity.id,
-              verb,
-              index,
-            })}
-            onClick={() => onSelectOperation(restEntity.id, verb, index)}
-            type="button"
-          >
-            <span className={`rest-dsl-page-verb rest-dsl-page-verb-${verb}`}>{verb.toUpperCase()}</span>
-            <span className="rest-dsl-page-operation-path">{operation?.path || operation?.id || '/'}</span>
-          </button>
-          <Button
-            variant="plain"
-            size="sm"
-            icon={<TrashIcon />}
-            aria-label="Delete Operation"
-            onClick={() => onDeleteOperation(restEntity, verb, index)}
-          />
-        </div>
-      </ListItem>
-    ));
+    return operations.map((operation, index) => {
+      const operationPath = operation?.path || operation?.id || '/';
+      const isSelected =
+        selection?.kind === 'operation' &&
+        selection.restId === restEntity.id &&
+        selection.verb === verb &&
+        selection.index === index;
+
+      return (
+        <ListItem key={`${restEntity.id}-${verb}-${index}`}>
+          <div className="rest-dsl-page-operation-row">
+            <Button
+              variant="plain"
+              className={getListItemClass(selection, {
+                kind: 'operation',
+                restId: restEntity.id,
+                verb,
+                index,
+              })}
+              onClick={() => onSelectOperation(restEntity.id, verb, index)}
+              aria-label={`Select ${verb.toUpperCase()} operation ${operationPath}`}
+              aria-pressed={isSelected}
+            >
+              <span className={`rest-dsl-page-verb rest-dsl-page-verb-${verb}`}>{verb.toUpperCase()}</span>
+              <span className="rest-dsl-page-operation-path">{operationPath}</span>
+            </Button>
+            <Button
+              variant="plain"
+              size="sm"
+              icon={<TrashIcon />}
+              aria-label="Delete Operation"
+              onClick={() => onDeleteOperation(restEntity, verb, index)}
+            />
+          </div>
+        </ListItem>
+      );
+    });
   });
 
   return <List className="rest-dsl-page-list rest-dsl-page-list-nested">{items}</List>;
@@ -129,13 +140,15 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
             <List className="rest-dsl-page-list">
               <ListItem>
                 <div className="rest-dsl-page-rest-header">
-                  <button
+                  <Button
+                    variant="plain"
                     className={getListItemClass(selection, { kind: 'restConfiguration' })}
                     onClick={onSelectRestConfiguration}
-                    type="button"
+                    aria-label="Select Rest Configuration"
+                    aria-pressed={selection?.kind === 'restConfiguration'}
                   >
                     Rest Configuration
-                  </button>
+                  </Button>
                   <div className="rest-dsl-page-rest-actions">
                     <Button
                       variant="plain"
@@ -168,17 +181,20 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
             <List className="rest-dsl-page-list">
               {restEntities.map((restEntity) => {
                 const restDefinition = restEntity.restDef?.rest ?? {};
+                const restLabel = restDefinition.path || restEntity.id || 'rest';
                 return (
                   <ListItem key={restEntity.id}>
                     <div className="rest-dsl-page-rest-group">
                       <div className="rest-dsl-page-rest-header">
-                        <button
+                        <Button
+                          variant="plain"
                           className={getListItemClass(selection, { kind: 'rest', restId: restEntity.id })}
                           onClick={() => onSelectRest(restEntity.id)}
-                          type="button"
+                          aria-label={`Select REST service ${restLabel}`}
+                          aria-pressed={selection?.kind === 'rest' && selection.restId === restEntity.id}
                         >
-                          {restDefinition.path || restEntity.id || 'rest'}
-                        </button>
+                          {restLabel}
+                        </Button>
                         <div className="rest-dsl-page-rest-actions">
                           <Button variant="link" icon={<PlusIcon />} onClick={() => onAddOperation(restEntity.id)}>
                             Add Operation

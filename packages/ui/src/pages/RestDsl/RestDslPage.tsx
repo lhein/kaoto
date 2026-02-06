@@ -20,7 +20,6 @@ import {
 } from '@patternfly/react-core';
 import { HelpIcon } from '@patternfly/react-icons';
 import { FunctionComponent, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { getCamelRandomId } from '../../camel-utils/camel-random-id';
 import { useLocalStorage } from '../../hooks';
@@ -39,7 +38,6 @@ import {
   ActionConfirmationModalContext,
   ActionConfirmationModalContextProvider,
 } from '../../providers/action-confirmation-modal.provider';
-import { Links } from '../../router/links.models';
 import { getValue, setValue } from '../../utils';
 import { RestDslDetails } from './RestDslDetails';
 import { RestDslNav } from './RestDslNav';
@@ -120,7 +118,6 @@ const ALLOWED_REST_TARGET_ENDPOINTS = ['direct:'] as const;
 export const RestDslPage: FunctionComponent = () => {
   const entitiesContext = useContext(EntitiesContext);
   const actionConfirmation = useContext(ActionConfirmationModalContext);
-  const navigate = useNavigate();
   const { selectedCatalog } = useRuntimeContext();
   const catalogKey = selectedCatalog?.version ?? selectedCatalog?.name ?? 'default';
 

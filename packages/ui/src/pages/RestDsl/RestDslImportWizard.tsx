@@ -342,7 +342,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                   </div>
                   {apicurioError && <span className="rest-dsl-page-import-error">{apicurioError}</span>}
                   <div className="rest-dsl-page-import-list-scroll rest-dsl-page-import-apicurio-list">
-                    <List className="rest-dsl-page-list rest-dsl-page-list-nested">
+                    <List isPlain className="rest-dsl-page-list rest-dsl-page-list-nested">
                       {filteredApicurioArtifacts.map((artifact) => (
                         <ListItem key={artifact.id}>
                           <Radio
@@ -423,7 +423,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
               onChange={(_event, checked) => onToggleSelectAllOperations(checked)}
             />
             <div className="rest-dsl-page-import-list-scroll">
-              <List className="rest-dsl-page-list rest-dsl-page-list-nested">
+              <List isPlain className="rest-dsl-page-list rest-dsl-page-list-nested">
                 {importOperations.map((operation) => (
                   <ListItem key={`${operation.operationId}-${operation.method}-${operation.path}`}>
                     <div className="rest-dsl-page-import-row">

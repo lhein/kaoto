@@ -190,6 +190,11 @@
   gap: 8px;
 }
 
+.rest-dsl-page-item.pf-v6-c-button {
+  justify-content: flex-start;
+  text-align: left;
+}
+
 .rest-dsl-page-operation-row {
   display: flex;
   align-items: center;

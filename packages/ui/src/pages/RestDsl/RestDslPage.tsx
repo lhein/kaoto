@@ -2,8 +2,6 @@ import './RestDslPage.scss';
 
 import { CanvasFormTabsContextResult, TypeaheadItem } from '@kaoto/forms';
 import {
-  Alert,
-  AlertGroup,
   Button,
   Form,
   FormGroup,
@@ -22,8 +20,7 @@ import {
 } from '@patternfly/react-core';
 import { HelpIcon } from '@patternfly/react-icons';
 import { FunctionComponent, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { parse as parseYaml } from 'yaml';
+import { useNavigate } from 'react-router-dom';
 
 import { getCamelRandomId } from '../../camel-utils/camel-random-id';
 import { useLocalStorage } from '../../hooks';
@@ -36,7 +33,7 @@ import { CamelCatalogService } from '../../models/visualization/flows/camel-cata
 import { CamelRestConfigurationVisualEntity } from '../../models/visualization/flows/camel-rest-configuration-visual-entity';
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
 import { CamelRouteVisualEntity } from '../../models/visualization/flows/camel-route-visual-entity';
-import { EntitiesContext, SettingsContext } from '../../providers';
+import { EntitiesContext } from '../../providers';
 import {
   ACTION_ID_CONFIRM,
   ActionConfirmationModalContext,
@@ -45,17 +42,8 @@ import {
 import { Links } from '../../router/links.models';
 import { getValue, setValue } from '../../utils';
 import { RestDslDetails } from './RestDslDetails';
-import { RestDslImportWizard } from './RestDslImportWizard';
 import { RestDslNav } from './RestDslNav';
-import {
-  ApicurioArtifact,
-  ApicurioArtifactSearchResult,
-  ImportLoadSource,
-  ImportOperation,
-  ImportSourceOption,
-  RestEditorSelection,
-  RestVerb,
-} from './restDslTypes';
+import { RestEditorSelection, RestVerb } from './restDslTypes';
 
 type OperationVerbToggleProps = {
   toggleRef: React.Ref<HTMLButtonElement>;
@@ -85,142 +73,6 @@ const OperationTypeHelp: FunctionComponent = () => (
     <Button variant="plain" aria-label="More info about Operation Type" icon={<HelpIcon />} />
   </Popover>
 );
-
-const trimUnderscoreEdges = (value: string) => {
-  let start = 0;
-  let end = value.length;
-  while (start < end && value[start] === '_') start += 1;
-  while (end > start && value[end - 1] === '_') end -= 1;
-  return value.slice(start, end);
-};
-
-const normalizeOperationIdFallback = (value: string) => {
-  let result = '';
-  let lastUnderscore = false;
-  for (const ch of value) {
-    const isAllowed = /[\w.-]/.test(ch);
-    if (isAllowed) {
-      result += ch;
-      lastUnderscore = false;
-    } else if (!lastUnderscore) {
-      result += '_';
-      lastUnderscore = true;
-    }
-  }
-  return trimUnderscoreEdges(result);
-};
-
-const mapOpenApiParameterToCamelParam = (parameter: Record<string, unknown>): Record<string, unknown> | undefined => {
-  const name = typeof parameter.name === 'string' ? parameter.name : undefined;
-  const location = typeof parameter.in === 'string' ? parameter.in : undefined;
-  if (!name || !location) return undefined;
-
-  const schema = (parameter.schema as Record<string, unknown> | undefined) ?? {};
-  const mapped: Record<string, unknown> = {
-    name,
-    type: location,
-  };
-
-  if (typeof parameter.required === 'boolean') {
-    mapped.required = parameter.required;
-  }
-  if (typeof parameter.description === 'string' && parameter.description.trim()) {
-    mapped.description = parameter.description;
-  }
-  if (typeof schema.type === 'string') {
-    mapped.dataType = schema.type;
-  }
-  if ('default' in schema) {
-    mapped.defaultValue = schema.default;
-  }
-
-  const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
-  if (enumValues?.length) {
-    mapped.allowableValues = enumValues.map((value) => ({ value: String(value) }));
-  }
-
-  return mapped;
-};
-
-const buildCamelParamList = (
-  pathItem: Record<string, unknown>,
-  operation: Record<string, unknown>,
-): Record<string, unknown>[] => {
-  const merged = new Map<string, Record<string, unknown>>();
-  const addParameters = (parameters: unknown) => {
-    if (!Array.isArray(parameters)) return;
-    parameters.forEach((parameter) => {
-      if (!parameter || typeof parameter !== 'object') return;
-      const asRecord = parameter as Record<string, unknown>;
-      const name = typeof asRecord.name === 'string' ? asRecord.name : '';
-      const location = typeof asRecord.in === 'string' ? asRecord.in : '';
-      if (!name || !location) return;
-      merged.set(`${location}:${name}`, asRecord);
-    });
-  };
-
-  addParameters(pathItem.parameters);
-  addParameters(operation.parameters);
-
-  return Array.from(merged.values())
-    .map(mapOpenApiParameterToCamelParam)
-    .filter((item): item is Record<string, unknown> => Boolean(item));
-};
-
-const buildCamelSecurityList = (operation: Record<string, unknown>): Record<string, unknown>[] => {
-  const security = operation.security;
-  if (!Array.isArray(security)) return [];
-
-  const mapped: Record<string, unknown>[] = [];
-  security.forEach((securityRequirement) => {
-    if (!securityRequirement || typeof securityRequirement !== 'object') return;
-    Object.entries(securityRequirement as Record<string, unknown>).forEach(([key, value]) => {
-      const scopes = Array.isArray(value) ? value.map((scope) => String(scope)).join(',') : '';
-      mapped.push(scopes ? { key, scopes } : { key });
-    });
-  });
-
-  return mapped;
-};
-
-const buildCamelResponseMessageList = (operation: Record<string, unknown>): Record<string, unknown>[] => {
-  const responses = operation.responses as Record<string, unknown> | undefined;
-  if (!responses || typeof responses !== 'object') return [];
-
-  return Object.entries(responses).map(([code, response]) => {
-    const responseRecord = (response as Record<string, unknown> | undefined) ?? {};
-    const mapped: Record<string, unknown> = { code: String(code) };
-
-    if (typeof responseRecord.description === 'string' && responseRecord.description.trim()) {
-      mapped.message = responseRecord.description;
-    }
-
-    const headers = responseRecord.headers as Record<string, unknown> | undefined;
-    if (headers && typeof headers === 'object') {
-      const mappedHeaders = Object.entries(headers)
-        .map(([name, headerValue]) => {
-          const headerRecord = (headerValue as Record<string, unknown> | undefined) ?? {};
-          const schema = (headerRecord.schema as Record<string, unknown> | undefined) ?? {};
-          const mappedHeader: Record<string, unknown> = { name };
-          if (typeof headerRecord.description === 'string' && headerRecord.description.trim()) {
-            mappedHeader.description = headerRecord.description;
-          }
-          const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
-          if (enumValues?.length) {
-            mappedHeader.allowableValues = enumValues.map((value) => ({ value: String(value) }));
-          }
-          return mappedHeader;
-        })
-        .filter((header) => Boolean(header.name));
-
-      if (mappedHeaders.length > 0) {
-        mapped.header = mappedHeaders;
-      }
-    }
-
-    return mapped;
-  });
-};
 
 type OperationVerbSelectProps = {
   isOpen: boolean;
@@ -264,13 +116,10 @@ const REST_METHODS = REST_DSL_VERBS;
 const NAV_MIN_WIDTH = 220;
 const NAV_MAX_WIDTH = 520;
 const ALLOWED_REST_TARGET_ENDPOINTS = ['direct:'] as const;
-const OPENAPI_METHODS: RestVerb[] = ['get', 'post', 'put', 'delete', 'head', 'patch'];
 
 export const RestDslPage: FunctionComponent = () => {
   const entitiesContext = useContext(EntitiesContext);
   const actionConfirmation = useContext(ActionConfirmationModalContext);
-  const settingsAdapter = useContext(SettingsContext);
-  const location = useLocation();
   const navigate = useNavigate();
   const { selectedCatalog } = useRuntimeContext();
   const catalogKey = selectedCatalog?.version ?? selectedCatalog?.name ?? 'default';
@@ -299,68 +148,6 @@ export const RestDslPage: FunctionComponent = () => {
     });
     return inputs;
   }, [entitiesContext?.visualEntities]);
-
-  const normalizeOperationId = useCallback((value: string, method: RestVerb, path: string) => {
-    const trimmed = value.trim();
-    if (trimmed) return trimmed;
-    const fallback = `${method}_${path}`;
-    return normalizeOperationIdFallback(fallback) || `${method}_${Date.now()}`;
-  }, []);
-
-  const buildImportOperations = useCallback(
-    (spec: Record<string, unknown>) => {
-      const paths = (spec.paths ?? {}) as Record<string, Record<string, unknown>>;
-      const operations: ImportOperation[] = [];
-
-      Object.entries(paths).forEach(([path, pathItem]) => {
-        OPENAPI_METHODS.forEach((method) => {
-          const operation = pathItem?.[method] as Record<string, unknown> | undefined;
-          if (!operation) return;
-          const rawOperationId = typeof operation.operationId === 'string' ? operation.operationId : '';
-          const operationId = normalizeOperationId(rawOperationId, method, path);
-          const routeExists = directRouteInputs.has(`direct:${operationId}`);
-          const description =
-            typeof operation.description === 'string'
-              ? operation.description
-              : typeof operation.summary === 'string'
-                ? operation.summary
-                : undefined;
-          const requestBodyContent = (operation.requestBody as { content?: Record<string, unknown> } | undefined)
-            ?.content;
-          const consumes = requestBodyContent ? Object.keys(requestBodyContent).join(',') : undefined;
-          const responseEntries = Object.entries((operation.responses as Record<string, unknown> | undefined) ?? {});
-          const successResponse = responseEntries.find(([statusCode]) => /^2\d\d$/.test(statusCode))?.[1] as
-            | { content?: Record<string, unknown> }
-            | undefined;
-          const fallbackResponse = responseEntries[0]?.[1] as { content?: Record<string, unknown> } | undefined;
-          const responseContent = successResponse?.content ?? fallbackResponse?.content;
-          const produces = responseContent ? Object.keys(responseContent).join(',') : undefined;
-          const param = buildCamelParamList(pathItem as Record<string, unknown>, operation);
-          const security = buildCamelSecurityList(operation);
-          const responseMessage = buildCamelResponseMessageList(operation);
-          const deprecated = typeof operation.deprecated === 'boolean' ? operation.deprecated : undefined;
-
-          operations.push({
-            operationId,
-            method,
-            path,
-            description,
-            consumes,
-            produces,
-            param,
-            security,
-            responseMessage,
-            deprecated,
-            selected: true,
-            routeExists,
-          });
-        });
-      });
-
-      return operations;
-    },
-    [directRouteInputs, normalizeOperationId],
-  );
 
   const directEndpointItems = useMemo<TypeaheadItem<string>[]>(() => {
     const endpoints = new Set<string>();
@@ -453,28 +240,8 @@ export const RestDslPage: FunctionComponent = () => {
   const [operationPath, setOperationPath] = useState('');
   const [operationVerb, setOperationVerb] = useState<RestVerb>('get');
   const [isVerbSelectOpen, setIsVerbSelectOpen] = useState(false);
-  const [isImportOpenApiOpen, setIsImportOpenApiOpen] = useState(false);
-  const [openApiSpecText, setOpenApiSpecText] = useState('');
-  const [openApiSpecUri, setOpenApiSpecUri] = useState('');
-  const [openApiError, setOpenApiError] = useState('');
-  const [importOperations, setImportOperations] = useState<ImportOperation[]>([]);
-  const [isOpenApiParsed, setIsOpenApiParsed] = useState(false);
-  const [openApiLoadSource, setOpenApiLoadSource] = useState<ImportLoadSource>(undefined);
-  const [importSource, setImportSource] = useState<ImportSourceOption>('uri');
-  const [importCreateRest, setImportCreateRest] = useState(false);
-  const [importCreateRoutes, setImportCreateRoutes] = useState(true);
-  const [importSelectAll, setImportSelectAll] = useState(true);
-  const [apicurioArtifacts, setApicurioArtifacts] = useState<ApicurioArtifact[]>([]);
-  const [filteredApicurioArtifacts, setFilteredApicurioArtifacts] = useState<ApicurioArtifact[]>([]);
-  const [apicurioSearch, setApicurioSearch] = useState('');
-  const [apicurioError, setApicurioError] = useState('');
-  const [isApicurioLoading, setIsApicurioLoading] = useState(false);
-  const [selectedApicurioId, setSelectedApicurioId] = useState('');
-  const [isImportBusy, setIsImportBusy] = useState(false);
-  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [toUriValue, setToUriValue] = useState('');
   const toUriFieldRef = useRef<HTMLDivElement | null>(null);
-  const openApiFileInputRef = useRef<HTMLInputElement | null>(null);
   const uriInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -651,384 +418,6 @@ export const RestDslPage: FunctionComponent = () => {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('import') === '1') {
-      navigate(Links.RestImport, { replace: true });
-    }
-  }, [location.search, navigate]);
-
-  const closeImportOpenApi = useCallback(() => {
-    setIsImportOpenApiOpen(false);
-  }, []);
-
-  const parseOpenApiSpec = useCallback(
-    (specText: string): boolean => {
-      if (!specText.trim()) {
-        setOpenApiError('Provide an OpenAPI specification to import.');
-        setImportOperations([]);
-        setIsOpenApiParsed(false);
-        return false;
-      }
-
-      try {
-        const spec = parseYaml(specText) as Record<string, unknown>;
-        if (!spec || typeof spec !== 'object' || !('paths' in spec)) {
-          throw new Error('Invalid spec');
-        }
-
-        setOpenApiSpecText(JSON.stringify(spec, null, 2));
-        const operations = buildImportOperations(spec);
-        if (operations.length === 0) {
-          setOpenApiError('No operations were found in the specification.');
-          setImportOperations([]);
-          setIsOpenApiParsed(false);
-          return false;
-        }
-
-        setImportOperations(operations);
-        setImportSelectAll(true);
-        setOpenApiError('');
-        setIsOpenApiParsed(true);
-        return true;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Invalid OpenAPI specification.';
-        setOpenApiError(message || 'Invalid OpenAPI specification.');
-        setImportOperations([]);
-        setIsOpenApiParsed(false);
-        return false;
-      }
-    },
-    [buildImportOperations],
-  );
-
-  const handleParseOpenApiSpec = useCallback(() => {
-    const ok = parseOpenApiSpec(openApiSpecText);
-    if (ok) {
-      setOpenApiLoadSource('manual');
-    }
-  }, [openApiSpecText, parseOpenApiSpec]);
-
-  const handleFetchOpenApiSpec = useCallback(async (): Promise<boolean> => {
-    const uri = openApiSpecUri.trim();
-    if (!uri) {
-      setOpenApiError('Provide a specification URI to fetch.');
-      setIsOpenApiParsed(false);
-      return false;
-    }
-
-    try {
-      const response = await fetch(uri);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch specification (${response.status})`);
-      }
-      const specText = await response.text();
-      const parsed = parseOpenApiSpec(specText);
-      if (parsed) {
-        setOpenApiLoadSource('uri');
-      }
-      return parsed;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to fetch specification from the provided URI.';
-      setOpenApiError(message);
-      setIsOpenApiParsed(false);
-      return false;
-    }
-  }, [openApiSpecUri, parseOpenApiSpec]);
-
-  const fetchApicurioArtifacts = useCallback(async () => {
-    const apicurioRegistryUrl = settingsAdapter.getSettings().apicurioRegistryUrl;
-    if (!apicurioRegistryUrl) return;
-
-    setIsApicurioLoading(true);
-    setApicurioError('');
-    try {
-      const response = await fetch(`${apicurioRegistryUrl}/apis/registry/v2/search/artifacts`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch artifacts (${response.status})`);
-      }
-      const result = (await response.json()) as ApicurioArtifactSearchResult;
-      const artifacts = (result.artifacts ?? []).filter((artifact) => artifact.type === 'OPENAPI');
-      setApicurioArtifacts(artifacts);
-      setFilteredApicurioArtifacts(artifacts);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to fetch artifacts from Apicurio Registry.';
-      setApicurioError(message);
-    } finally {
-      setIsApicurioLoading(false);
-    }
-  }, [settingsAdapter]);
-
-  const handleLoadFromApicurio = useCallback(
-    async (artifactId: string): Promise<boolean> => {
-      const apicurioRegistryUrl = settingsAdapter.getSettings().apicurioRegistryUrl;
-      if (!apicurioRegistryUrl) return false;
-
-      setIsApicurioLoading(true);
-      setApicurioError('');
-      try {
-        const artifactUrl = `${apicurioRegistryUrl}/apis/registry/v2/groups/default/artifacts/${artifactId}`;
-        const response = await fetch(artifactUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch artifact (${response.status})`);
-        }
-        const specText = await response.text();
-        const parsed = parseOpenApiSpec(specText);
-        if (parsed) {
-          setOpenApiLoadSource('apicurio');
-        }
-        setOpenApiSpecUri(artifactUrl);
-        return parsed;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unable to download the selected artifact.';
-        setApicurioError(message);
-        return false;
-      } finally {
-        setIsApicurioLoading(false);
-      }
-    },
-    [parseOpenApiSpec, settingsAdapter],
-  );
-
-  useEffect(() => {
-    if (!isImportOpenApiOpen || importSource !== 'apicurio') return;
-    fetchApicurioArtifacts();
-  }, [fetchApicurioArtifacts, importSource, isImportOpenApiOpen]);
-
-  useEffect(() => {
-    if (!apicurioSearch.trim()) {
-      setFilteredApicurioArtifacts(apicurioArtifacts);
-      return;
-    }
-    const lowered = apicurioSearch.toLowerCase();
-    setFilteredApicurioArtifacts(apicurioArtifacts.filter((artifact) => artifact.name.toLowerCase().includes(lowered)));
-  }, [apicurioArtifacts, apicurioSearch]);
-
-  useEffect(() => {
-    if (!importStatus) return;
-    const timeoutId = globalThis.setTimeout(() => {
-      setImportStatus(null);
-    }, 5000);
-    return () => {
-      globalThis.clearTimeout(timeoutId);
-    };
-  }, [importStatus]);
-
-  const handleUploadOpenApiClick = useCallback(() => {
-    openApiFileInputRef.current?.click();
-  }, []);
-
-  const handleUploadOpenApiFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      try {
-        const content = await file.text();
-        const parsed = parseOpenApiSpec(content);
-        if (parsed) {
-          setOpenApiLoadSource('file');
-        }
-        setOpenApiSpecUri(file.name);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unable to read the uploaded specification.';
-        setOpenApiError(message);
-        setIsOpenApiParsed(false);
-      } finally {
-        event.target.value = '';
-      }
-    },
-    [parseOpenApiSpec],
-  );
-
-  const handleToggleSelectAllOperations = useCallback((checked: boolean) => {
-    setImportSelectAll(checked);
-    setImportOperations((prev) =>
-      prev.map((operation) => ({
-        ...operation,
-        selected: checked,
-      })),
-    );
-  }, []);
-
-  const handleToggleOperation = useCallback((operationId: string, method: RestVerb, path: string, checked: boolean) => {
-    setImportOperations((prev) => {
-      const next = prev.map((operation) =>
-        operation.operationId === operationId && operation.method === method && operation.path === path
-          ? { ...operation, selected: checked }
-          : operation,
-      );
-      setImportSelectAll(next.every((operation) => operation.selected));
-      return next;
-    });
-  }, []);
-
-  const handleImportOpenApi = useCallback((): boolean => {
-    if (!entitiesContext || (!importCreateRest && !importCreateRoutes)) {
-      setImportStatus({
-        type: 'error',
-        message: 'Import failed. Choose at least one option to generate.',
-      });
-      return false;
-    }
-    const selectedOperations = importOperations.filter((operation) => operation.selected);
-    if (selectedOperations.length === 0) {
-      setOpenApiError('Select at least one operation to import.');
-      setImportStatus({
-        type: 'error',
-        message: 'Import failed. Select at least one operation.',
-      });
-      return false;
-    }
-
-    const camelResource = entitiesContext.camelResource as {
-      addNewEntity: (type?: EntityType) => string;
-      getVisualEntities: () => Array<{ id: string; type: EntityType }>;
-    };
-
-    if (importCreateRoutes) {
-      selectedOperations.forEach((operation) => {
-        if (operation.routeExists) return;
-        const newId = camelResource.addNewEntity(EntityType.Route);
-        const routeEntity = camelResource
-          .getVisualEntities()
-          .find((entity) => entity.type === EntityType.Route && entity.id === newId) as
-          | CamelRouteVisualEntity
-          | undefined;
-
-        routeEntity?.updateModel('route.id', `route-${operation.operationId}`);
-        routeEntity?.updateModel('route.from.id', `direct-from-${operation.operationId}`);
-        routeEntity?.updateModel('route.from.uri', `direct:${operation.operationId}`);
-        routeEntity?.updateModel('route.from.steps', [
-          {
-            setBody: {
-              constant: `Operation ${operation.operationId} not yet implemented`,
-            },
-          },
-        ]);
-      });
-    }
-
-    if (importCreateRest) {
-      const newRestId = camelResource.addNewEntity(EntityType.Rest);
-      const restEntity = camelResource
-        .getVisualEntities()
-        .find((entity) => entity.type === EntityType.Rest && entity.id === newRestId) as
-        | CamelRestVisualEntity
-        | undefined;
-
-      if (restEntity) {
-        const restDefinition: Record<string, unknown> = { id: newRestId };
-        const trimmedSpecUri = openApiSpecUri.trim();
-        if (trimmedSpecUri) {
-          restDefinition.openApi = { specification: trimmedSpecUri };
-        }
-
-        selectedOperations.forEach((operation) => {
-          const methodKey = operation.method;
-          const list = (restDefinition[methodKey] as Record<string, unknown>[] | undefined) ?? [];
-          const operationDefinition: Record<string, unknown> = {
-            id: operation.operationId,
-            path: operation.path,
-            routeId: `route-${operation.operationId}`,
-            to: `direct:${operation.operationId}`,
-          };
-          if (operation.description?.trim()) {
-            const operationDescription = operation.description.trim();
-            operationDefinition.description = operationDescription;
-          }
-          if (operation.consumes?.trim()) {
-            operationDefinition.consumes = operation.consumes.trim();
-          }
-          if (operation.produces?.trim()) {
-            operationDefinition.produces = operation.produces.trim();
-          }
-          if (operation.param && operation.param.length > 0) {
-            operationDefinition.param = operation.param;
-          }
-          if (operation.responseMessage && operation.responseMessage.length > 0) {
-            operationDefinition.responseMessage = operation.responseMessage;
-          }
-          if (operation.security && operation.security.length > 0) {
-            operationDefinition.security = operation.security;
-          }
-          if (typeof operation.deprecated === 'boolean') {
-            operationDefinition.deprecated = operation.deprecated;
-          }
-          list.push(operationDefinition);
-          restDefinition[methodKey] = list;
-        });
-
-        restEntity.updateModel(restEntity.getRootPath(), restDefinition);
-      }
-    }
-
-    entitiesContext.updateEntitiesFromCamelResource();
-    setImportStatus({
-      type: 'success',
-      message: `Import succeeded. ${selectedOperations.length} operation${selectedOperations.length === 1 ? '' : 's'} added.`,
-    });
-    closeImportOpenApi();
-    return true;
-  }, [closeImportOpenApi, entitiesContext, importCreateRest, importCreateRoutes, importOperations, openApiSpecUri]);
-
-  const handleImportSourceChange = useCallback((nextSource: ImportSourceOption) => {
-    setImportSource(nextSource);
-    setOpenApiError('');
-    setApicurioError('');
-    setImportOperations([]);
-    setIsOpenApiParsed(false);
-    setOpenApiLoadSource(undefined);
-    setImportSelectAll(true);
-    setSelectedApicurioId('');
-  }, []);
-
-  const handleWizardNext = useCallback(async () => {
-    if (isImportBusy) return false;
-    setOpenApiError('');
-    setApicurioError('');
-
-    if (importSource === 'uri') {
-      if (!openApiSpecUri.trim()) {
-        setOpenApiError('Provide a specification URI to fetch.');
-        return false;
-      }
-      setIsImportBusy(true);
-      const ok = await handleFetchOpenApiSpec();
-      setIsImportBusy(false);
-      if (!ok) return false;
-    } else if (importSource === 'file') {
-      if (!isOpenApiParsed) {
-        setOpenApiError('Upload a specification file to continue.');
-        return false;
-      }
-    } else {
-      if (!selectedApicurioId) {
-        setApicurioError('Select an artifact to continue.');
-        return false;
-      }
-      setIsImportBusy(true);
-      const ok = await handleLoadFromApicurio(selectedApicurioId);
-      setIsImportBusy(false);
-      if (!ok) return false;
-    }
-
-    if (!isOpenApiParsed) {
-      setOpenApiError('Parse the specification before continuing.');
-      return false;
-    }
-
-    return true;
-  }, [
-    handleFetchOpenApiSpec,
-    handleLoadFromApicurio,
-    importSource,
-    isImportBusy,
-    isOpenApiParsed,
-    openApiSpecUri,
-    selectedApicurioId,
-  ]);
-
-  useEffect(() => {
     if (selection?.kind !== 'operation') return;
     const container = toUriFieldRef.current;
     if (!container) return;
@@ -1123,7 +512,7 @@ export const RestDslPage: FunctionComponent = () => {
 
   const handleVerbToggle = useCallback(() => {
     setIsVerbSelectOpen((prev) => !prev);
-  }, [setNavWidth]);
+  }, []);
 
   const handleCreateOperation = useCallback(() => {
     if (!entitiesContext || !addOperationRestId) return;
@@ -1268,7 +657,7 @@ export const RestDslPage: FunctionComponent = () => {
       globalThis.removeEventListener('mousemove', handleMouseMove);
       globalThis.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [setNavWidth]);
 
   const formKey = useMemo(() => {
     if (!selection) return `rest-form-${catalogKey}-none`;
@@ -1326,15 +715,6 @@ export const RestDslPage: FunctionComponent = () => {
 
   return (
     <ActionConfirmationModalContextProvider>
-      <AlertGroup isToast className="rest-dsl-page-toast">
-        {importStatus && (
-          <Alert
-            variant={importStatus.type === 'success' ? 'success' : 'danger'}
-            title={importStatus.message}
-            isLiveRegion
-          />
-        )}
-      </AlertGroup>
       <div className="rest-dsl-page">
         <Split className="rest-dsl-page-split" hasGutter>
           <RestDslNav
@@ -1444,46 +824,6 @@ export const RestDslPage: FunctionComponent = () => {
             </ModalFooter>
           </Modal>
         )}
-        <RestDslImportWizard
-          isOpen={isImportOpenApiOpen}
-          apicurioRegistryUrl={settingsAdapter.getSettings().apicurioRegistryUrl}
-          importSource={importSource}
-          openApiSpecUri={openApiSpecUri}
-          openApiSpecText={openApiSpecText}
-          openApiError={openApiError}
-          apicurioError={apicurioError}
-          apicurioSearch={apicurioSearch}
-          filteredApicurioArtifacts={filteredApicurioArtifacts}
-          selectedApicurioId={selectedApicurioId}
-          isApicurioLoading={isApicurioLoading}
-          isImportBusy={isImportBusy}
-          isOpenApiParsed={isOpenApiParsed}
-          importCreateRest={importCreateRest}
-          importCreateRoutes={importCreateRoutes}
-          importSelectAll={importSelectAll}
-          importOperations={importOperations}
-          importStatus={importStatus}
-          openApiLoadSource={openApiLoadSource}
-          openApiFileInputRef={openApiFileInputRef}
-          onClose={closeImportOpenApi}
-          onImportSourceChange={handleImportSourceChange}
-          onOpenApiSpecUriChange={setOpenApiSpecUri}
-          onFetchOpenApiSpec={handleFetchOpenApiSpec}
-          onOpenApiSpecTextChange={setOpenApiSpecText}
-          onParseOpenApiSpec={handleParseOpenApiSpec}
-          onToggleImportCreateRest={setImportCreateRest}
-          onToggleImportCreateRoutes={setImportCreateRoutes}
-          onToggleSelectAllOperations={handleToggleSelectAllOperations}
-          onToggleOperation={handleToggleOperation}
-          onUploadOpenApiClick={handleUploadOpenApiClick}
-          onUploadOpenApiFile={handleUploadOpenApiFile}
-          onApicurioSearchChange={setApicurioSearch}
-          onFetchApicurioArtifacts={fetchApicurioArtifacts}
-          onSelectApicurioArtifact={setSelectedApicurioId}
-          onWizardNext={handleWizardNext}
-          onImportOpenApi={handleImportOpenApi}
-          onGoToDesigner={() => navigate(Links.Home)}
-        />
       </div>
     </ActionConfirmationModalContextProvider>
   );

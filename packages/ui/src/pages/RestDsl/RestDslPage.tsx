@@ -112,7 +112,7 @@ const OperationVerbSelect: FunctionComponent<OperationVerbSelectProps> = ({
 
 const REST_METHODS = REST_DSL_VERBS;
 const NAV_MIN_WIDTH = 220;
-const NAV_MAX_WIDTH = 520;
+const DETAILS_MIN_WIDTH = 420;
 const ALLOWED_REST_TARGET_ENDPOINTS = ['direct:'] as const;
 
 export const RestDslPage: FunctionComponent = () => {
@@ -637,7 +637,8 @@ export const RestDslPage: FunctionComponent = () => {
       if (!resizeRef.current?.isDragging) return;
       const delta = event.clientX - resizeRef.current.startX;
       const nextWidth = resizeRef.current.startWidth + delta;
-      const clamped = Math.max(NAV_MIN_WIDTH, Math.min(NAV_MAX_WIDTH, nextWidth));
+      const maxNavWidth = Math.max(NAV_MIN_WIDTH, (globalThis.innerWidth || 0) - DETAILS_MIN_WIDTH);
+      const clamped = Math.max(NAV_MIN_WIDTH, Math.min(maxNavWidth, nextWidth));
       setNavWidth(clamped);
     };
 

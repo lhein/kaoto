@@ -1,8 +1,15 @@
+import { act, renderHook } from '@testing-library/react';
+import { createElement, ReactNode } from 'react';
+
+import { EntityType } from '../../models/camel/entities';
+import { EntitiesContext, SettingsContext } from '../../providers';
+import { SourceCodeContext } from '../../providers/source-code.provider';
 import {
   applyRouteExistsToOperations,
   buildOperationsFromSpec,
   buildRestDefinitionFromOperations,
   toggleSelectAllOperations,
+  useRestDslImportWizard,
 } from './useRestDslImportWizard';
 
 describe('buildOperationsFromSpec', () => {
@@ -132,6 +139,73 @@ describe('buildOperationsFromSpec', () => {
       },
     ]);
   });
+
+  it('uses summary when description is missing and maps deprecated flag', () => {
+    const spec = {
+      paths: {
+        '/pet': {
+          put: {
+            operationId: 'updatePet',
+            summary: 'Update pet summary',
+            deprecated: true,
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {},
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const operations = buildOperationsFromSpec(spec);
+    expect(operations).toHaveLength(1);
+    expect(operations[0].description).toBe('Update pet summary');
+    expect(operations[0].deprecated).toBe(true);
+  });
+
+  it('falls back to first response content type when no 2xx response exists', () => {
+    const spec = {
+      paths: {
+        '/pet': {
+          post: {
+            operationId: 'addPet',
+            responses: {
+              '400': {
+                content: {
+                  'application/problem+json': {},
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const operations = buildOperationsFromSpec(spec);
+    expect(operations).toHaveLength(1);
+    expect(operations[0].produces).toBe('application/problem+json');
+  });
+
+  it('uses generated operationId when OpenAPI operationId is missing', () => {
+    const spec = {
+      paths: {
+        '/pet': {
+          delete: {
+            responses: {
+              '200': { description: 'ok' },
+            },
+          },
+        },
+      },
+    };
+
+    const operations = buildOperationsFromSpec(spec);
+    expect(operations).toHaveLength(1);
+    expect(operations[0].operationId).toBe('delete-/pet');
+  });
 });
 
 describe('buildRestDefinitionFromOperations', () => {
@@ -218,5 +292,130 @@ describe('route exists selection behavior', () => {
         routeExists: false,
       },
     ]);
+  });
+
+  it('keeps route-existing operations unselected when deselecting all', () => {
+    const withRouteExists = applyRouteExistsToOperations(
+      [
+        {
+          operationId: 'addPet',
+          method: 'post',
+          path: '/pet',
+          selected: true,
+          routeExists: false,
+        },
+        {
+          operationId: 'updatePet',
+          method: 'put',
+          path: '/pet',
+          selected: true,
+          routeExists: false,
+        },
+      ],
+      new Set(['addPet']),
+    );
+
+    const toggled = toggleSelectAllOperations(withRouteExists, false);
+    expect(toggled).toEqual([
+      {
+        operationId: 'addPet',
+        method: 'post',
+        path: '/pet',
+        selected: false,
+        routeExists: true,
+      },
+      {
+        operationId: 'updatePet',
+        method: 'put',
+        path: '/pet',
+        selected: false,
+        routeExists: false,
+      },
+    ]);
+  });
+});
+
+describe('useRestDslImportWizard', () => {
+  it('does not create duplicate route when operation direct route already exists', () => {
+    const addNewEntity = jest.fn();
+    const getVisualEntities = jest.fn().mockReturnValue([]);
+    const updateEntitiesFromCamelResource = jest.fn();
+    const updateSourceCodeFromEntities = jest.fn();
+
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(
+        SettingsContext.Provider,
+        {
+          value: {
+            getSettings: () => ({ apicurioRegistryUrl: '' }),
+          } as never,
+        },
+        createElement(
+          SourceCodeContext.Provider,
+          { value: '' },
+          createElement(
+            EntitiesContext.Provider,
+            {
+              value: {
+                entities: [],
+                currentSchemaType: 'integration',
+                visualEntities: [
+                  {
+                    type: EntityType.Route,
+                    entityDef: {
+                      route: {
+                        from: {
+                          uri: 'direct:addPet',
+                        },
+                      },
+                    },
+                  },
+                ],
+                camelResource: {
+                  addNewEntity,
+                  getVisualEntities,
+                },
+                updateEntitiesFromCamelResource,
+                updateSourceCodeFromEntities,
+              } as never,
+            },
+            children,
+          ),
+        ),
+      );
+
+    const { result } = renderHook(() => useRestDslImportWizard({ isActive: true }), { wrapper });
+
+    const spec = JSON.stringify({
+      openapi: '3.0.0',
+      info: {
+        title: 'Test API',
+        version: '1.0.0',
+      },
+      paths: {
+        '/pet': {
+          post: {
+            operationId: 'addPet',
+            responses: {
+              '200': { description: 'ok' },
+            },
+          },
+        },
+      },
+    });
+
+    act(() => {
+      result.current.setOpenApiSpecText(spec);
+      result.current.handleParseOpenApiSpec();
+    });
+
+    let imported = false;
+    act(() => {
+      imported = result.current.handleImportOpenApi();
+    });
+
+    expect(imported).toBe(false);
+    expect(addNewEntity).not.toHaveBeenCalled();
+    expect(updateEntitiesFromCamelResource).not.toHaveBeenCalled();
   });
 });

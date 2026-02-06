@@ -110,6 +110,118 @@ const normalizeOperationIdFallback = (value: string) => {
   return trimUnderscoreEdges(result);
 };
 
+const mapOpenApiParameterToCamelParam = (parameter: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const name = typeof parameter.name === 'string' ? parameter.name : undefined;
+  const location = typeof parameter.in === 'string' ? parameter.in : undefined;
+  if (!name || !location) return undefined;
+
+  const schema = (parameter.schema as Record<string, unknown> | undefined) ?? {};
+  const mapped: Record<string, unknown> = {
+    name,
+    type: location,
+  };
+
+  if (typeof parameter.required === 'boolean') {
+    mapped.required = parameter.required;
+  }
+  if (typeof parameter.description === 'string' && parameter.description.trim()) {
+    mapped.description = parameter.description;
+  }
+  if (typeof schema.type === 'string') {
+    mapped.dataType = schema.type;
+  }
+  if ('default' in schema) {
+    mapped.defaultValue = schema.default;
+  }
+
+  const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+  if (enumValues?.length) {
+    mapped.allowableValues = enumValues.map((value) => ({ value: String(value) }));
+  }
+
+  return mapped;
+};
+
+const buildCamelParamList = (
+  pathItem: Record<string, unknown>,
+  operation: Record<string, unknown>,
+): Record<string, unknown>[] => {
+  const merged = new Map<string, Record<string, unknown>>();
+  const addParameters = (parameters: unknown) => {
+    if (!Array.isArray(parameters)) return;
+    parameters.forEach((parameter) => {
+      if (!parameter || typeof parameter !== 'object') return;
+      const asRecord = parameter as Record<string, unknown>;
+      const name = typeof asRecord.name === 'string' ? asRecord.name : '';
+      const location = typeof asRecord.in === 'string' ? asRecord.in : '';
+      if (!name || !location) return;
+      merged.set(`${location}:${name}`, asRecord);
+    });
+  };
+
+  addParameters(pathItem.parameters);
+  addParameters(operation.parameters);
+
+  return Array.from(merged.values())
+    .map(mapOpenApiParameterToCamelParam)
+    .filter((item): item is Record<string, unknown> => Boolean(item));
+};
+
+const buildCamelSecurityList = (operation: Record<string, unknown>): Record<string, unknown>[] => {
+  const security = operation.security;
+  if (!Array.isArray(security)) return [];
+
+  const mapped: Record<string, unknown>[] = [];
+  security.forEach((securityRequirement) => {
+    if (!securityRequirement || typeof securityRequirement !== 'object') return;
+    Object.entries(securityRequirement as Record<string, unknown>).forEach(([key, value]) => {
+      const scopes = Array.isArray(value) ? value.map((scope) => String(scope)).join(',') : '';
+      mapped.push(scopes ? { key, scopes } : { key });
+    });
+  });
+
+  return mapped;
+};
+
+const buildCamelResponseMessageList = (operation: Record<string, unknown>): Record<string, unknown>[] => {
+  const responses = operation.responses as Record<string, unknown> | undefined;
+  if (!responses || typeof responses !== 'object') return [];
+
+  return Object.entries(responses).map(([code, response]) => {
+    const responseRecord = (response as Record<string, unknown> | undefined) ?? {};
+    const mapped: Record<string, unknown> = { code: String(code) };
+
+    if (typeof responseRecord.description === 'string' && responseRecord.description.trim()) {
+      mapped.message = responseRecord.description;
+    }
+
+    const headers = responseRecord.headers as Record<string, unknown> | undefined;
+    if (headers && typeof headers === 'object') {
+      const mappedHeaders = Object.entries(headers)
+        .map(([name, headerValue]) => {
+          const headerRecord = (headerValue as Record<string, unknown> | undefined) ?? {};
+          const schema = (headerRecord.schema as Record<string, unknown> | undefined) ?? {};
+          const mappedHeader: Record<string, unknown> = { name };
+          if (typeof headerRecord.description === 'string' && headerRecord.description.trim()) {
+            mappedHeader.description = headerRecord.description;
+          }
+          const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+          if (enumValues?.length) {
+            mappedHeader.allowableValues = enumValues.map((value) => ({ value: String(value) }));
+          }
+          return mappedHeader;
+        })
+        .filter((header) => Boolean(header.name));
+
+      if (mappedHeaders.length > 0) {
+        mapped.header = mappedHeaders;
+      }
+    }
+
+    return mapped;
+  });
+};
+
 type OperationVerbSelectProps = {
   isOpen: boolean;
   selected: RestVerb;
@@ -207,10 +319,38 @@ export const RestDslPage: FunctionComponent = () => {
           const rawOperationId = typeof operation.operationId === 'string' ? operation.operationId : '';
           const operationId = normalizeOperationId(rawOperationId, method, path);
           const routeExists = directRouteInputs.has(`direct:${operationId}`);
+          const description =
+            typeof operation.description === 'string'
+              ? operation.description
+              : typeof operation.summary === 'string'
+                ? operation.summary
+                : undefined;
+          const requestBodyContent = (operation.requestBody as { content?: Record<string, unknown> } | undefined)
+            ?.content;
+          const consumes = requestBodyContent ? Object.keys(requestBodyContent).join(',') : undefined;
+          const responseEntries = Object.entries((operation.responses as Record<string, unknown> | undefined) ?? {});
+          const successResponse = responseEntries.find(([statusCode]) => /^2\d\d$/.test(statusCode))?.[1] as
+            | { content?: Record<string, unknown> }
+            | undefined;
+          const fallbackResponse = responseEntries[0]?.[1] as { content?: Record<string, unknown> } | undefined;
+          const responseContent = successResponse?.content ?? fallbackResponse?.content;
+          const produces = responseContent ? Object.keys(responseContent).join(',') : undefined;
+          const param = buildCamelParamList(pathItem as Record<string, unknown>, operation);
+          const security = buildCamelSecurityList(operation);
+          const responseMessage = buildCamelResponseMessageList(operation);
+          const deprecated = typeof operation.deprecated === 'boolean' ? operation.deprecated : undefined;
+
           operations.push({
             operationId,
             method,
             path,
+            description,
+            consumes,
+            produces,
+            param,
+            security,
+            responseMessage,
+            deprecated,
             selected: true,
             routeExists,
           });
@@ -722,13 +862,13 @@ export const RestDslPage: FunctionComponent = () => {
     });
   }, []);
 
-  const handleImportOpenApi = useCallback(() => {
+  const handleImportOpenApi = useCallback((): boolean => {
     if (!entitiesContext || (!importCreateRest && !importCreateRoutes)) {
       setImportStatus({
         type: 'error',
         message: 'Import failed. Choose at least one option to generate.',
       });
-      return;
+      return false;
     }
     const selectedOperations = importOperations.filter((operation) => operation.selected);
     if (selectedOperations.length === 0) {
@@ -737,7 +877,7 @@ export const RestDslPage: FunctionComponent = () => {
         type: 'error',
         message: 'Import failed. Select at least one operation.',
       });
-      return;
+      return false;
     }
 
     const camelResource = entitiesContext.camelResource as {
@@ -786,12 +926,35 @@ export const RestDslPage: FunctionComponent = () => {
         selectedOperations.forEach((operation) => {
           const methodKey = operation.method;
           const list = (restDefinition[methodKey] as Record<string, unknown>[] | undefined) ?? [];
-          list.push({
+          const operationDefinition: Record<string, unknown> = {
             id: operation.operationId,
             path: operation.path,
             routeId: `route-${operation.operationId}`,
             to: `direct:${operation.operationId}`,
-          });
+          };
+          if (operation.description?.trim()) {
+            const operationDescription = operation.description.trim();
+            operationDefinition.description = operationDescription;
+          }
+          if (operation.consumes?.trim()) {
+            operationDefinition.consumes = operation.consumes.trim();
+          }
+          if (operation.produces?.trim()) {
+            operationDefinition.produces = operation.produces.trim();
+          }
+          if (operation.param && operation.param.length > 0) {
+            operationDefinition.param = operation.param;
+          }
+          if (operation.responseMessage && operation.responseMessage.length > 0) {
+            operationDefinition.responseMessage = operation.responseMessage;
+          }
+          if (operation.security && operation.security.length > 0) {
+            operationDefinition.security = operation.security;
+          }
+          if (typeof operation.deprecated === 'boolean') {
+            operationDefinition.deprecated = operation.deprecated;
+          }
+          list.push(operationDefinition);
           restDefinition[methodKey] = list;
         });
 
@@ -805,6 +968,7 @@ export const RestDslPage: FunctionComponent = () => {
       message: `Import succeeded. ${selectedOperations.length} operation${selectedOperations.length === 1 ? '' : 's'} added.`,
     });
     closeImportOpenApi();
+    return true;
   }, [closeImportOpenApi, entitiesContext, importCreateRest, importCreateRoutes, importOperations, openApiSpecUri]);
 
   const handleImportSourceChange = useCallback((nextSource: ImportSourceOption) => {
@@ -1317,10 +1481,7 @@ export const RestDslPage: FunctionComponent = () => {
           onFetchApicurioArtifacts={fetchApicurioArtifacts}
           onSelectApicurioArtifact={setSelectedApicurioId}
           onWizardNext={handleWizardNext}
-          onImportOpenApi={() => {
-            handleImportOpenApi();
-            return true;
-          }}
+          onImportOpenApi={handleImportOpenApi}
           onGoToDesigner={() => navigate(Links.Home)}
         />
       </div>

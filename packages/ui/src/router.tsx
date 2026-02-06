@@ -54,12 +54,7 @@ export const router = createHashRouter([
       {
         path: Links.DataMapper,
         lazy: async () => {
-          const envFlag =
-            typeof import.meta !== 'undefined' && import.meta.env?.VITE_ENABLE_DATAMAPPER_DEBUGGER !== undefined
-              ? import.meta.env.VITE_ENABLE_DATAMAPPER_DEBUGGER
-              : typeof process !== 'undefined'
-                ? process.env.VITE_ENABLE_DATAMAPPER_DEBUGGER
-                : undefined;
+          const envFlag = typeof process !== 'undefined' ? process.env.VITE_ENABLE_DATAMAPPER_DEBUGGER : undefined;
           if (envFlag === 'true') {
             return import('./components/DataMapper/debug/page');
           } else {

@@ -15,6 +15,13 @@ export type ImportOperation = {
   operationId: string;
   method: RestVerb;
   path: string;
+  description?: string;
+  consumes?: string;
+  produces?: string;
+  param?: Record<string, unknown>[];
+  responseMessage?: Record<string, unknown>[];
+  security?: Record<string, unknown>[];
+  deprecated?: boolean;
   selected: boolean;
   routeExists: boolean;
 };

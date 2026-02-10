@@ -28,11 +28,10 @@ export const Navigation: FunctionComponent<INavigationSidebar> = (props) => {
         title: 'Rest DSL',
         hidden: () => !NAVIGATION_ELEMENTS.RestDsl.includes(currentSchemaType),
         children: [
-          { title: 'Editor', to: Links.Rest, isActive: (pathname) => pathname === Links.Rest },
+          { title: 'Editor', to: Links.Rest },
           {
             title: 'Import',
             to: Links.RestImport,
-            isActive: (pathname) => pathname === Links.RestImport,
           },
         ],
       },
@@ -80,34 +79,21 @@ export const Navigation: FunctionComponent<INavigationSidebar> = (props) => {
                     isActive={nav.children.some((child) => child.to === currentLocation.pathname)}
                     isExpanded
                   >
-                    {nav.children.map((child) => {
-                      const childIsActive =
-                        typeof child.isActive === 'function'
-                          ? child.isActive(currentLocation.pathname)
-                          : (child.isActive ?? currentLocation.pathname === child.to);
-
-                      return (
-                        <NavItem
-                          id={child.title}
-                          key={child.title}
-                          data-testid={child.title}
-                          itemId={index}
-                          className={clsx({ 'pf-v6-u-hidden': child.hidden?.() })}
-                          hidden={child.hidden?.()}
-                          isActive={childIsActive}
-                        >
-                          <Link
-                            data-testid={child.title}
-                            to={child.to}
-                            onClick={() => {
-                              child.onClick?.();
-                            }}
-                          >
-                            {child.title}
-                          </Link>
-                        </NavItem>
-                      );
-                    })}
+                    {nav.children.map((child) => (
+                      <NavItem
+                        id={child.title}
+                        key={child.title}
+                        data-testid={child.title}
+                        itemId={index}
+                        className={clsx({ 'pf-v6-u-hidden': child.hidden?.() })}
+                        hidden={child.hidden?.()}
+                        isActive={currentLocation.pathname === child.to}
+                      >
+                        <Link data-testid={child.title} to={child.to}>
+                          {child.title}
+                        </Link>
+                      </NavItem>
+                    ))}
                   </NavExpandable>
                 );
               }

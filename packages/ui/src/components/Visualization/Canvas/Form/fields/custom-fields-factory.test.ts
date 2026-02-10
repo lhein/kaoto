@@ -1,94 +1,120 @@
+import catalogLibrary from '@kaoto/camel-catalog/index.json';
+import { CatalogLibrary } from '@kaoto/camel-catalog/types';
 import { EnumField } from '@kaoto/forms';
 
+import { ICamelComponentDefinition } from '../../../../../models/camel-components-catalog';
+import { CatalogKind } from '../../../../../models/catalog-kind';
 import { KaotoSchemaDefinition } from '../../../../../models/kaoto-schema';
-import { IVisualizationNode } from '../../../../../models/visualization/base-visual-entity';
+import { CamelCatalogService } from '../../../../../models/visualization/flows/camel-catalog.service';
+import { getFirstCatalogMap } from '../../../../../stubs/test-load-catalog';
 import { PrefixedBeanField, UnprefixedBeanField } from './BeanField/BeanField';
 import { customFieldsFactoryfactory } from './custom-fields-factory';
 import { DirectEndpointNameField } from './DirectEndpointNameField';
 import { ExpressionField } from './ExpressionField/ExpressionField';
 
 describe('customFieldsFactoryfactory', () => {
-  const directNode = { data: { componentName: 'direct' } } as unknown as IVisualizationNode;
-  const timerNode = { data: { componentName: 'timer' } } as unknown as IVisualizationNode;
+  let componentCatalogMap: Record<string, ICamelComponentDefinition>;
+
+  beforeEach(async () => {
+    const catalogsMap = await getFirstCatalogMap(catalogLibrary as CatalogLibrary);
+    componentCatalogMap = catalogsMap.componentCatalogMap;
+
+    CamelCatalogService.setCatalogKey(CatalogKind.Component, catalogsMap.componentCatalogMap);
+  });
+
+  afterEach(() => {
+    CamelCatalogService.clearCatalogs();
+  });
 
   it('returns EnumField for enums regardless of the schema type', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'object', enum: ['option 1', 'option 2', 'option 3'] };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(EnumField);
   });
 
   it('returns PrefixedBeanField for string type with format starting with "bean:"', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', format: 'bean:myBean' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(PrefixedBeanField);
   });
 
   it('returns UnprefixedBeanField for string type with title "Ref"', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', title: 'Ref' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(UnprefixedBeanField);
   });
 
-  it('returns DirectEndpointNameField for direct endpoint name field', () => {
+  it('returns DirectEndpointNameField for direct component name schema from camel catalog', () => {
+    const directNameSchema = componentCatalogMap.direct.propertiesSchema?.properties?.name as
+      | KaotoSchemaDefinition['schema']
+      | undefined;
+
+    expect(directNameSchema).toBeDefined();
+
+    const result = customFieldsFactoryfactory(directNameSchema ?? {});
+    expect(result).toBe(DirectEndpointNameField);
+  });
+
+  it('returns DirectEndpointNameField for a matching direct endpoint schema', () => {
     const schema: KaotoSchemaDefinition['schema'] = {
       type: 'string',
       title: 'Name',
-      description: 'Sets the endpoint name',
+      description: 'Sets the direct endpoint name',
     };
-    const result = customFieldsFactoryfactory(directNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(DirectEndpointNameField);
   });
 
   it('returns ExpressionField for format "expression"', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', format: 'expression' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(ExpressionField);
   });
 
   it('returns ExpressionField for format "expressionProperty"', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', format: 'expressionProperty' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(ExpressionField);
   });
 
   it('returns undefined for string type with unrelated format', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', format: 'text' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined for string type with title "Ref" but non-string type', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'number', title: 'Ref' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined for string type with case-sensitive title mismatch', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', title: 'ref' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBeUndefined();
   });
 
   it('prioritizes bean format over Ref title when both are present', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string', format: 'bean:myBean', title: 'Ref' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBe(PrefixedBeanField);
   });
 
   it('returns undefined for non-string type', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'number', format: 'bean:myBean' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined if format is missing', () => {
     const schema: KaotoSchemaDefinition['schema'] = { type: 'string' };
-    const result = customFieldsFactoryfactory(timerNode)(schema);
+    const result = customFieldsFactoryfactory(schema);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined if schema is empty', () => {
-    const result = customFieldsFactoryfactory(timerNode)({});
+    const result = customFieldsFactoryfactory({});
     expect(result).toBeUndefined();
   });
 });

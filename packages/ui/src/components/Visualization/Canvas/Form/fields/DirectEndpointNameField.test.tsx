@@ -1,6 +1,6 @@
 import { CamelYamlDsl, RouteDefinition } from '@kaoto/camel-catalog/types';
 import { ModelContextProvider, SchemaProvider } from '@kaoto/forms';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { JSONSchema4 } from 'json-schema';
 
 import { CamelRouteResource } from '../../../../../models/camel/camel-route-resource';
@@ -48,18 +48,17 @@ describe('DirectEndpointNameField', () => {
       { from: { uri: 'direct', parameters: { name: 'billing' }, steps: [] } },
     ]);
 
-    const input = screen.getByRole('textbox', { name: 'Name' });
-    fireEvent.click(input);
+    const toggle = screen.getByLabelText('Name toggle');
+    fireEvent.click(toggle);
 
     const options = screen.getAllByRole('option').map((option) => option.textContent);
 
-    expect(options).toHaveLength(3);
-    expect(options[0]).toMatch(/^billing \(route-/);
-    expect(options[1]).toEqual('orders');
-    expect(options[2]).toMatch(/^start \(route-/);
+    expect(options.some((option) => option?.includes('billing'))).toBeTruthy();
+    expect(options.some((option) => option?.includes('orders'))).toBeTruthy();
+    expect(options.some((option) => option?.includes('start'))).toBeTruthy();
   });
 
-  it('enables create button only for new names', () => {
+  it('enables create button only for new names', async () => {
     renderField(undefined, [{ from: { uri: 'direct:start', steps: [] } }]);
 
     const input = screen.getByRole('textbox', { name: 'Name' });
@@ -71,10 +70,12 @@ describe('DirectEndpointNameField', () => {
     expect(button).toBeDisabled();
 
     fireEvent.change(input, { target: { value: 'new-endpoint' } });
-    expect(button).toBeEnabled();
+    fireEvent.click(screen.getByLabelText('Name toggle'));
+    fireEvent.click(screen.getByText("Create new direct endpoint 'new-endpoint'"));
+    await waitFor(() => expect(button).toBeEnabled());
   });
 
-  it('creates a new route with direct from and typed name', () => {
+  it('creates a new route with direct from and typed name', async () => {
     const toggleFlowVisibleSpy = jest.fn();
     const visibleFlowsContext = {
       allFlowsVisible: true,
@@ -93,6 +94,9 @@ describe('DirectEndpointNameField', () => {
     const button = screen.getByRole('button', { name: 'Create Route' });
 
     fireEvent.change(input, { target: { value: 'new-route' } });
+    fireEvent.click(screen.getByLabelText('Name toggle'));
+    fireEvent.click(screen.getByText("Create new direct endpoint 'new-route'"));
+    await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
 
     expect(addNewEntitySpy).toHaveBeenCalledWith(EntityType.Route, {

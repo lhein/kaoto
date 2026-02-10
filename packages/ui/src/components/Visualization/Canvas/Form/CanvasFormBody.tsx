@@ -49,7 +49,7 @@ export const CanvasFormBody: FunctionComponent<CanvasFormTabsProps> = ({ vizNode
         onChangeProp={handleOnChangeIndividualProp}
         model={model}
         omitFields={omitFields.current}
-        customFieldsFactory={customFieldsFactoryfactory(vizNode)}
+        customFieldsFactory={customFieldsFactoryfactory}
       />
     </SuggestionRegistrar>
   );

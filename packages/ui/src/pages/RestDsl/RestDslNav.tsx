@@ -181,7 +181,11 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
             <List className="rest-dsl-page-list">
               {restEntities.map((restEntity) => {
                 const restDefinition = restEntity.restDef?.rest ?? {};
-                const restLabel = restDefinition.path || restEntity.id || 'rest';
+                const restLabel =
+                  (typeof restDefinition.id === 'string' && restDefinition.id.trim()) ||
+                  (typeof restDefinition.path === 'string' && restDefinition.path.trim()) ||
+                  restEntity.id ||
+                  'rest';
                 return (
                   <ListItem key={restEntity.id}>
                     <div className="rest-dsl-page-rest-group">

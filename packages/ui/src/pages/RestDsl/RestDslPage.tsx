@@ -384,6 +384,11 @@ export const RestDslPage: FunctionComponent = () => {
       setValue(newModel, path, updatedValue);
       selectedFormState.entity.updateModel(selectedFormState.path, newModel);
       entitiesContext.updateSourceCodeFromEntities();
+
+      // Force a lightweight rerender so nav labels based on editable model IDs update on blur/input.
+      if (path === 'id' || path === 'path') {
+        setSelection((current) => (current ? { ...current } : current));
+      }
     },
     [entitiesContext, selectedFormState],
   );

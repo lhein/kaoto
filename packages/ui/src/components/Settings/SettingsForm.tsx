@@ -48,13 +48,9 @@ export const SettingsForm: FunctionComponent = () => {
       </CardBody>
 
       <CardFooter>
-        <Flex justifyContent={{ default: 'justifyContentFlexEnd' }} style={{ width: '100%' }}>
-          <FlexItem>
-            <Button data-testid="settings-form-save-btn" variant="primary" onClick={onSave}>
-              Apply
-            </Button>
-          </FlexItem>
-        </Flex>
+        <Button data-testid="settings-form-save-btn" variant="primary" onClick={onSave}>
+          Save
+        </Button>
       </CardFooter>
     </Card>
   );

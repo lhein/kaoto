@@ -1,3 +1,5 @@
+import './RestDslDetails.scss';
+
 import {
   CanvasFormTabsContext,
   CanvasFormTabsContextResult,
@@ -18,12 +20,55 @@ import {
   SplitItem,
   Title,
 } from '@patternfly/react-core';
-import { CodeIcon } from '@patternfly/react-icons';
+import { CodeIcon, HelpIcon } from '@patternfly/react-icons';
 import { FunctionComponent, RefObject } from 'react';
 
 import { customFieldsFactoryfactory } from '../../components/Visualization/Canvas/Form/fields/custom-fields-factory';
 import { SuggestionRegistrar } from '../../components/Visualization/Canvas/Form/suggestions/SuggestionsProvider';
-import { RestEditorSelection, SelectedFormState, ToUriSchema } from './restDslTypes';
+import { CatalogKind } from '../../models/catalog-kind';
+import { CamelCatalogService } from '../../models/visualization/flows/camel-catalog.service';
+import { RestEditorSelection, RestVerb, SelectedFormState, ToUriSchema } from './restDslTypes';
+
+export const getOperationFieldHelp = (verb: RestVerb, fieldName: string, fallbackTitle?: string) => {
+  const operationSchema = CamelCatalogService.getComponent(CatalogKind.Processor, verb)?.propertiesSchema;
+  const schemaProperty = operationSchema?.properties?.[fieldName] as
+    | { title?: string; description?: string; default?: unknown; type?: string; enum?: unknown[] }
+    | undefined;
+  const description = schemaProperty?.description;
+  const defaultValue = schemaProperty?.default;
+  const title = schemaProperty?.title ?? fallbackTitle ?? fieldName;
+  const type = schemaProperty?.type ?? (Array.isArray(schemaProperty?.enum) ? 'enum' : undefined);
+
+  if (!description && defaultValue === undefined) return undefined;
+
+  return (
+    <Popover
+      bodyContent={
+        <div>
+          <strong>
+            {title}
+            {type ? ` <${type}>` : ''}
+          </strong>
+          {description && <p>{description}</p>}
+          {defaultValue !== undefined && (
+            <p>
+              Default:{' '}
+              {typeof defaultValue === 'string' || typeof defaultValue === 'number' || typeof defaultValue === 'boolean'
+                ? String(defaultValue)
+                : JSON.stringify(defaultValue)}
+            </p>
+          )}
+        </div>
+      }
+      triggerAction="hover"
+      withFocusTrap={false}
+    >
+      <Button variant="plain" aria-label={`More info about ${title}`} icon={<HelpIcon />} />
+    </Popover>
+  );
+};
+
+export { OperationTypeHelp } from './components/RestDslOperationVerbSelect';
 
 type RestDslDetailsProps = {
   formKey: string;
@@ -60,13 +105,15 @@ export const RestDslDetails: FunctionComponent<RestDslDetailsProps> = ({
 }) => {
   return (
     <SplitItem className="rest-dsl-page-pane rest-dsl-page-pane-form" isFilled>
-      <Card className="rest-dsl-page-panel">
-        <CardHeader className="rest-dsl-page-panel-header">
-          <Title headingLevel="h2" size="md" className="rest-dsl-page-panel-title">
-            {selectedFormState?.title ?? 'Details'}
-          </Title>
+      <Card className="rest-dsl-details-panel">
+        <CardHeader className="rest-dsl-details-panel-header">
+          <div className="rest-dsl-details-header">
+            <Title headingLevel="h2" size="md" className="rest-dsl-details-panel-title">
+              {selectedFormState?.title ?? 'Details'}
+            </Title>
+          </div>
         </CardHeader>
-        <CardBody className="rest-dsl-page-panel-body">
+        <CardBody className="rest-dsl-details-panel-body">
           {selectedFormState ? (
             <CanvasFormTabsContext.Provider value={formTabsValue}>
               <SuggestionRegistrar>
@@ -79,7 +126,7 @@ export const RestDslDetails: FunctionComponent<RestDslDetailsProps> = ({
                     description={toUriSchema?.description}
                     defaultValue={toUriSchema?.defaultValue?.toString()}
                   >
-                    <div className="rest-dsl-page-to-uri-row" ref={toUriFieldRef}>
+                    <div className="rest-dsl-details-to-uri-row" ref={toUriFieldRef}>
                       <Typeahead
                         aria-label={toUriSchema?.title ?? 'To URI'}
                         data-testid="rest-operation-to-uri"

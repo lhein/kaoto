@@ -40,6 +40,7 @@ export type FormEntity = {
   getNodeSchema: (path: string) => unknown;
   getNodeDefinition: (path: string) => unknown;
   getRootPath: () => string;
+  updateModel: (path: string | undefined, value: unknown) => void;
 };
 
 export type SelectedFormState = {

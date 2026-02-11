@@ -1,3 +1,5 @@
+import './RestDslImportWizard.scss';
+
 import {
   Alert,
   Button,
@@ -73,7 +75,7 @@ const ImportWizardFooter: FunctionComponent<ImportWizardFooterProps> = ({
   };
 
   return (
-    <WizardFooterWrapper className="rest-dsl-page-import-footer">
+    <WizardFooterWrapper className="rest-dsl-import-footer">
       {!isResultStep && (
         <Button variant="secondary" onClick={onBack} isDisabled={isSourceStep || isImportBusy}>
           Back
@@ -242,7 +244,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
 }) => (
   <Wizard
     onClose={onClose}
-    className="rest-dsl-page-import-wizard"
+    className="rest-dsl-import-wizard"
     footer={(activeStep, goToNextStep, goToPrevStep, close) =>
       renderImportWizardFooter(
         { activeStep, goToNextStep, goToPrevStep, close },
@@ -270,12 +272,12 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
             onChange={() => onImportSourceChange('file')}
           />
           {importSource === 'file' && (
-            <div className="rest-dsl-page-import-source">
+            <div className="rest-dsl-import-source">
               <Button variant="secondary" onClick={onUploadOpenApiClick}>
                 Upload
               </Button>
               {isOpenApiParsed && openApiLoadSource === 'file' && (
-                <span className="rest-dsl-page-import-success">
+                <span className="rest-dsl-import-success">
                   <CheckCircleIcon /> Loaded
                 </span>
               )}
@@ -284,7 +286,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                 type="file"
                 accept=".json,.yaml,.yml,application/json,application/yaml,application/x-yaml,text/yaml,text/x-yaml"
                 onChange={onUploadOpenApiFile}
-                className="rest-dsl-page-import-file-input"
+                className="rest-dsl-import-file-input"
               />
             </div>
           )}
@@ -296,8 +298,8 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
             onChange={() => onImportSourceChange('uri')}
           />
           {importSource === 'uri' && (
-            <div className="rest-dsl-page-import-source">
-              <div className="rest-dsl-page-import-uri-row">
+            <div className="rest-dsl-import-source">
+              <div className="rest-dsl-import-uri-row">
                 <TextInput
                   id="rest-openapi-spec-uri"
                   value={openApiSpecUri}
@@ -312,7 +314,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                 </Button>
               </div>
               {isOpenApiParsed && openApiLoadSource === 'uri' && (
-                <span className="rest-dsl-page-import-success rest-dsl-page-import-success-block">
+                <span className="rest-dsl-page-import-success rest-dsl-import-success-block">
                   <CheckCircleIcon /> Loaded
                 </span>
               )}
@@ -326,10 +328,10 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
             onChange={() => onImportSourceChange('apicurio')}
           />
           {importSource === 'apicurio' && (
-            <div className="rest-dsl-page-import-source rest-dsl-page-import-apicurio">
+            <div className="rest-dsl-page-import-source rest-dsl-import-apicurio">
               {apicurioRegistryUrl ? (
                 <>
-                  <div className="rest-dsl-page-import-apicurio-toolbar">
+                  <div className="rest-dsl-import-apicurio-toolbar">
                     <SearchInput
                       aria-label="Search Apicurio artifacts"
                       placeholder="Search OpenAPI artifacts"
@@ -340,8 +342,8 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                       Refresh
                     </Button>
                   </div>
-                  {apicurioError && <span className="rest-dsl-page-import-error">{apicurioError}</span>}
-                  <div className="rest-dsl-page-import-list-scroll rest-dsl-page-import-apicurio-list">
+                  {apicurioError && <span className="rest-dsl-import-error">{apicurioError}</span>}
+                  <div className="rest-dsl-page-import-list-scroll rest-dsl-import-apicurio-list">
                     <List isPlain className="rest-dsl-page-list rest-dsl-page-list-nested">
                       {filteredApicurioArtifacts.map((artifact) => (
                         <ListItem key={artifact.id}>
@@ -351,7 +353,7 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                             label={
                               <span>
                                 {artifact.name || artifact.id}{' '}
-                                <span className="rest-dsl-page-import-note">(id: {artifact.id})</span>
+                                <span className="rest-dsl-import-note">(id: {artifact.id})</span>
                               </span>
                             }
                             isChecked={selectedApicurioId === artifact.id}
@@ -365,22 +367,20 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
                     </List>
                   </div>
                   {isOpenApiParsed && openApiLoadSource === 'apicurio' && (
-                    <span className="rest-dsl-page-import-success">
+                    <span className="rest-dsl-import-success">
                       <CheckCircleIcon /> Loaded
                     </span>
                   )}
                 </>
               ) : (
-                <span className="rest-dsl-page-import-note">
+                <span className="rest-dsl-import-note">
                   Configure the Apicurio Registry URL in Settings to enable this option.
                 </span>
               )}
             </div>
           )}
         </FormGroup>
-        {openApiError && importSource !== 'apicurio' && (
-          <span className="rest-dsl-page-import-error">{openApiError}</span>
-        )}
+        {openApiError && importSource !== 'apicurio' && <span className="rest-dsl-import-error">{openApiError}</span>}
       </Form>
     </WizardStep>
     <WizardStep name="Operations" id="operations">
@@ -394,13 +394,13 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
             rows={6}
           />
         </FormGroup>
-        <div className="rest-dsl-page-import-actions">
+        <div className="rest-dsl-import-actions">
           <Button variant="secondary" onClick={onParseOpenApiSpec}>
             Parse Specification
           </Button>
-          {openApiError && <span className="rest-dsl-page-import-error">{openApiError}</span>}
+          {openApiError && <span className="rest-dsl-import-error">{openApiError}</span>}
         </div>
-        <div className="rest-dsl-page-import-options">
+        <div className="rest-dsl-import-options">
           <Checkbox
             id="rest-openapi-create-rest"
             label="Create Rest DSL operations"
@@ -415,18 +415,18 @@ export const RestDslImportWizardContent: FunctionComponent<RestDslImportWizardCo
           />
         </div>
         {importOperations.length > 0 && (
-          <div className="rest-dsl-page-import-list">
+          <div className="rest-dsl-import-list">
             <Checkbox
               id="rest-openapi-select-all"
               label="Select all operations"
               isChecked={importSelectAll}
               onChange={(_event, checked) => onToggleSelectAllOperations(checked)}
             />
-            <div className="rest-dsl-page-import-list-scroll">
+            <div className="rest-dsl-import-list-scroll">
               <List isPlain className="rest-dsl-page-list rest-dsl-page-list-nested">
                 {importOperations.map((operation) => (
                   <ListItem key={`${operation.operationId}-${operation.method}-${operation.path}`}>
-                    <div className="rest-dsl-page-import-row">
+                    <div className="rest-dsl-import-row">
                       <Checkbox
                         id={`rest-openapi-${operation.operationId}-${operation.method}`}
                         label={`${operation.method.toUpperCase()} ${operation.path}${
@@ -466,7 +466,7 @@ export const RestDslImportWizard: FunctionComponent<RestDslImportWizardProps> = 
       variant={ModalVariant.large}
       aria-label="Import OpenAPI"
       onClose={onClose}
-      className="rest-dsl-page-import-modal"
+      className="rest-dsl-import-modal"
     >
       <ModalHeader title="Import OpenAPI" />
       <ModalBody>

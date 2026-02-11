@@ -52,6 +52,7 @@ describe('RestDslDetails', () => {
         getNodeSchema: jest.fn(() => ({ title: 'schema' })),
         getNodeDefinition: jest.fn(() => ({ id: 'op-1' })),
         getRootPath: jest.fn(() => 'rest.get.0'),
+        updateModel: jest.fn(),
       },
     };
 
@@ -80,6 +81,7 @@ describe('RestDslDetails', () => {
         getNodeSchema: jest.fn(() => ({})),
         getNodeDefinition: jest.fn(() => ({})),
         getRootPath: jest.fn(() => 'rest.get.0'),
+        updateModel: jest.fn(),
       },
     };
 

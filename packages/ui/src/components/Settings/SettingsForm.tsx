@@ -1,5 +1,5 @@
 import { CanvasFormTabsContext, CanvasFormTabsContextResult, KaotoForm } from '@kaoto/forms';
-import { Button, Card, CardBody, CardFooter, CardTitle, Flex, FlexItem } from '@patternfly/react-core';
+import { Button, Card, CardBody, CardFooter, CardTitle } from '@patternfly/react-core';
 import { FunctionComponent, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 

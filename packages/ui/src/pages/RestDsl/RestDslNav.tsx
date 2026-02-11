@@ -1,75 +1,13 @@
+import './RestDslNav.scss';
+
 import { Button, Card, CardBody, CardHeader, List, ListItem, SplitItem, Title } from '@patternfly/react-core';
 import { PlusIcon, TrashIcon } from '@patternfly/react-icons';
 import { FunctionComponent } from 'react';
 
 import { CamelRestConfigurationVisualEntity } from '../../models/visualization/flows/camel-rest-configuration-visual-entity';
 import { CamelRestVisualEntity } from '../../models/visualization/flows/camel-rest-visual-entity';
+import { RestDslOperationList } from './components/RestDslOperationList';
 import { RestEditorSelection, RestVerb } from './restDslTypes';
-
-type RestOperationListProps = {
-  restEntity: CamelRestVisualEntity;
-  restDefinition: Record<string, unknown>;
-  restMethods: RestVerb[];
-  selection: RestEditorSelection | undefined;
-  onSelectOperation: (restId: string, verb: RestVerb, index: number) => void;
-  onDeleteOperation: (restEntity: CamelRestVisualEntity, verb: RestVerb, index: number) => void;
-  getListItemClass: (selection: RestEditorSelection | undefined, target: RestEditorSelection) => string;
-};
-
-const RestOperationList: FunctionComponent<RestOperationListProps> = ({
-  restEntity,
-  restDefinition,
-  restMethods,
-  selection,
-  onSelectOperation,
-  onDeleteOperation,
-  getListItemClass,
-}) => {
-  const items = restMethods.flatMap((verb) => {
-    const operations = restDefinition[verb] as Array<{ path?: string; id?: string }> | undefined;
-    if (!operations || operations.length === 0) return [];
-
-    return operations.map((operation, index) => {
-      const operationPath = operation?.path || operation?.id || '/';
-      const isSelected =
-        selection?.kind === 'operation' &&
-        selection.restId === restEntity.id &&
-        selection.verb === verb &&
-        selection.index === index;
-
-      return (
-        <ListItem key={`${restEntity.id}-${verb}-${index}`}>
-          <div className="rest-dsl-page-operation-row">
-            <Button
-              variant="plain"
-              className={getListItemClass(selection, {
-                kind: 'operation',
-                restId: restEntity.id,
-                verb,
-                index,
-              })}
-              onClick={() => onSelectOperation(restEntity.id, verb, index)}
-              aria-label={`Select ${verb.toUpperCase()} operation ${operationPath}`}
-              aria-pressed={isSelected}
-            >
-              <span className={`rest-dsl-page-verb rest-dsl-page-verb-${verb}`}>{verb.toUpperCase()}</span>
-              <span className="rest-dsl-page-operation-path">{operationPath}</span>
-            </Button>
-            <Button
-              variant="plain"
-              size="sm"
-              icon={<TrashIcon />}
-              aria-label="Delete Operation"
-              onClick={() => onDeleteOperation(restEntity, verb, index)}
-            />
-          </div>
-        </ListItem>
-      );
-    });
-  });
-
-  return <List className="rest-dsl-page-list rest-dsl-page-list-nested">{items}</List>;
-};
 
 type RestDslNavProps = {
   navWidth: number | string;
@@ -112,20 +50,20 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
 }) => {
   return (
     <SplitItem className="rest-dsl-page-pane rest-dsl-page-pane-nav" style={{ flexBasis: navWidth }}>
-      <Card className="rest-dsl-page-panel">
-        <CardHeader className="rest-dsl-page-panel-header">
-          <div className="rest-dsl-page-header">
-            <Title headingLevel="h2" size="md" className="rest-dsl-page-panel-title">
+      <Card className="rest-dsl-nav-panel">
+        <CardHeader className="rest-dsl-nav-panel-header">
+          <div className="rest-dsl-nav-header">
+            <Title headingLevel="h2" size="md" className="rest-dsl-nav-panel-title">
               Rest DSL
             </Title>
           </div>
         </CardHeader>
-        <CardBody className="rest-dsl-page-panel-body">
-          <div className="rest-dsl-page-section-header">
-            <Title headingLevel="h3" className="rest-dsl-page-section-title">
-              <span className="rest-dsl-page-section-title-text">Rest Configuration</span>
+        <CardBody className="rest-dsl-nav-panel-body">
+          <div className="rest-dsl-nav-section-header">
+            <Title headingLevel="h3" className="rest-dsl-nav-section-title">
+              <span className="rest-dsl-nav-section-title-text">Rest Configuration</span>
             </Title>
-            <div className="rest-dsl-page-section-actions">
+            <div className="rest-dsl-nav-section-actions">
               <Button
                 variant="secondary"
                 icon={<PlusIcon />}
@@ -137,9 +75,9 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
             </div>
           </div>
           {restConfiguration ? (
-            <List className="rest-dsl-page-list">
+            <List className="rest-dsl-nav-list">
               <ListItem>
-                <div className="rest-dsl-page-rest-header">
+                <div className="rest-dsl-nav-rest-header">
                   <Button
                     variant="plain"
                     className={getListItemClass(selection, { kind: 'restConfiguration' })}
@@ -149,7 +87,7 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
                   >
                     Rest Configuration
                   </Button>
-                  <div className="rest-dsl-page-rest-actions">
+                  <div className="rest-dsl-nav-rest-actions">
                     <Button
                       variant="plain"
                       icon={<TrashIcon />}
@@ -162,23 +100,23 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
               </ListItem>
             </List>
           ) : (
-            <p className="rest-dsl-page-empty-text">No rest configuration found.</p>
+            <p className="rest-dsl-nav-empty-text">No rest configuration found.</p>
           )}
 
-          <div className="rest-dsl-page-section-header">
-            <Title headingLevel="h3" className="rest-dsl-page-section-title">
-              <span className="rest-dsl-page-section-title-text">Rest Services</span>
+          <div className="rest-dsl-nav-section-header">
+            <Title headingLevel="h3" className="rest-dsl-nav-section-title">
+              <span className="rest-dsl-nav-section-title-text">Rest Services</span>
             </Title>
-            <div className="rest-dsl-page-section-actions">
+            <div className="rest-dsl-nav-section-actions">
               <Button variant="secondary" icon={<PlusIcon />} onClick={onCreateRest} isDisabled={!canAddRestEntities}>
                 Add
               </Button>
             </div>
           </div>
           {restEntities.length === 0 ? (
-            <p className="rest-dsl-page-empty-text">No rest elements found.</p>
+            <p className="rest-dsl-nav-empty-text">No rest elements found.</p>
           ) : (
-            <List className="rest-dsl-page-list">
+            <List className="rest-dsl-nav-list">
               {restEntities.map((restEntity) => {
                 const restDefinition = restEntity.restDef?.rest ?? {};
                 const restLabel =
@@ -188,8 +126,8 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
                   'rest';
                 return (
                   <ListItem key={restEntity.id}>
-                    <div className="rest-dsl-page-rest-group">
-                      <div className="rest-dsl-page-rest-header">
+                    <div className="rest-dsl-nav-rest-group">
+                      <div className="rest-dsl-nav-rest-header">
                         <Button
                           variant="plain"
                           className={getListItemClass(selection, { kind: 'rest', restId: restEntity.id })}
@@ -199,7 +137,7 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
                         >
                           {restLabel}
                         </Button>
-                        <div className="rest-dsl-page-rest-actions">
+                        <div className="rest-dsl-nav-rest-actions">
                           <Button variant="link" icon={<PlusIcon />} onClick={() => onAddOperation(restEntity.id)}>
                             Add Operation
                           </Button>
@@ -212,7 +150,7 @@ export const RestDslNav: FunctionComponent<RestDslNavProps> = ({
                           />
                         </div>
                       </div>
-                      <RestOperationList
+                      <RestDslOperationList
                         restEntity={restEntity}
                         restDefinition={restDefinition as Record<string, unknown>}
                         restMethods={restMethods}

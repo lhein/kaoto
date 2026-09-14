@@ -21,6 +21,17 @@ import { MavenRuntimeDetector } from '../services/MavenRuntimeDetector';
 import { getSuggestions } from '../services/SuggestionRegistry';
 import { KaotoHostController, KaotoHostControllerOptions } from '../webview/bridge';
 
+function getNonce(): string {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+
+
 export class KaotoEditorProvider implements vscode.CustomTextEditorProvider {
   static register(context: vscode.ExtensionContext): vscode.Disposable {
     return vscode.window.registerCustomEditorProvider(
@@ -37,10 +48,33 @@ export class KaotoEditorProvider implements vscode.CustomTextEditorProvider {
     panel: vscode.WebviewPanel,
     _token: vscode.CancellationToken,
   ): Promise<void> {
+    panel.webview.options = { enableScripts: true };
+    panel.webview.html = this.getWebviewHtml(panel.webview);
+
     const bus = new InMemoryEventBus();
     const options = this.buildOptions(document);
     const controller = new KaotoHostController(bus, options);
     await controller.initialize(panel, document.uri.toString());
+  }
+
+  private getWebviewHtml(webview: vscode.Webview): string {
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'KaotoWebviewApp.js'),
+    );
+    const nonce = getNonce();
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaoto</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
   }
 
   private buildOptions(document: vscode.TextDocument): KaotoHostControllerOptions {

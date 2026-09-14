@@ -13,9 +13,10 @@ import { WorkspaceEdit } from '@kie-tools-core/workspace/dist/api';
 import { createRef, RefObject } from 'react';
 import { RouterProvider } from 'react-router-dom';
 
+import type { IEventBus } from '../event-bus/types';
 import { CatalogLoaderProvider } from '../dynamic-catalog/catalog.provider';
 import { CatalogKind, FileTypes, FileTypesResponse, StepUpdateAction } from '../models';
-import { AbstractSettingsAdapter, SettingsModel } from '../models/settings';
+import { AbstractSettingsAdapter, ColorScheme, ISettingsModel, SettingsModel } from '../models/settings';
 import { KaotoResourceProvider } from '../providers';
 import { EntitiesProvider } from '../providers/entities.provider';
 import { ReloadProvider } from '../providers/reload.provider';
@@ -42,6 +43,7 @@ export class KaotoEditorApp implements Editor {
     protected readonly envelopeContext: KogitoEditorEnvelopeContextType<KaotoEditorChannelApi>,
     protected readonly initArgs: EditorInitArgs,
     protected readonly settingsAdapter: AbstractSettingsAdapter,
+    protected readonly eventBus?: IEventBus,
   ) {
     this.editorRef = createRef<SourceCodeBridgeProviderRef>();
     this.settings = this.settingsAdapter.getSettings();
@@ -175,6 +177,24 @@ export class KaotoEditorApp implements Editor {
   }
 
   af_componentRoot() {
+    if (this.eventBus) {
+      this.eventBus.on('editor:document:init', ({ content, fileUri }) => {
+        void this.setContent(fileUri, content);
+      });
+      this.eventBus.on('editor:document:externalChange', ({ content }) => {
+        void this.setContent('', content);
+      });
+      this.eventBus.on('editor:settings:updated', ({ settings }) => {
+        this.settingsAdapter.saveSettings(settings as unknown as ISettingsModel);
+      });
+      this.eventBus.on('host:theme:changed', ({ theme }) => {
+        setColorScheme(theme === 'dark' ? ColorScheme.Dark : ColorScheme.Light);
+      });
+      this.eventBus.handle('editor:document:getContent', async () => ({
+        content: await this.getContent(),
+      }));
+    }
+
     return (
       <ReloadProvider>
         <SettingsProvider adapter={this.settingsAdapter}>

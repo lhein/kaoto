@@ -399,4 +399,30 @@ export class VSCodeKaotoEditorChannelApi extends DefaultVsCodeKieEditorChannelAp
 
 		return ColorScheme.Light;
 	}
+
+	/**
+	 * Returns a KaotoHostControllerOptions object wired to this channel API's
+	 * service methods. Used during the migration to KDP-007 EventBus.
+	 */
+	makeHostControllerOptions(): import('./bridge').KaotoHostControllerOptions {
+		return {
+			getSettings: () => this.getVSCodeKaotoSettings() as Promise<Record<string, unknown>>,
+			getContent: async () => '',
+			getMetadata: (key) => this.getMetadata(key),
+			setMetadata: (key, value) => this.setMetadata(key, value),
+			getResourceContent: (path) => this.getResourceContent(path),
+			saveResourceContent: (path, content) => this.saveResourceContent(path, content),
+			isResourceExist: (path) => this.isResourceExist(path),
+			deleteResource: (path) => this.deleteResource(path),
+			getResourcesContentByType: (fileType) =>
+				this.getResourcesContentByType(fileType as import('@kaoto/kaoto/models').FileTypes).then(
+					(res) => res.map((r) => ({ path: r.filename, content: r.content })),
+				),
+			askUserForFileSelection: (include, exclude, options) =>
+				this.askUserForFileSelection(include, exclude, options),
+			getSuggestions: (topic, word, context) =>
+				this.getSuggestions(topic, word, context as import('@kaoto/kaoto/models').SuggestionRequestContext),
+			getRuntimeInfoFromMavenContext: () => this.getRuntimeInfoFromMavenContext(),
+		};
+	}
 }

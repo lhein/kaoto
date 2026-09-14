@@ -33,7 +33,8 @@
     "test:ui:vsix:views": "yarn test:ui:vsix 'out/views/*.test.js'",
     "test:ui:vsix:export": "yarn test:ui:vsix 'out/export/*.test.js'",
     "test:ui:vsix:deploy": "yarn test:ui:vsix --code_settings ./src/ui-test/vscode-settings-minikube.json 'out/deploy/*.test.js'",
-    "test:ui:clean": "rimraf ./test-resources && rimraf ./out && rimraf *.vsix"
+    "test:ui:clean": "rimraf ./test-resources && rimraf ./out && rimraf *.vsix",
+    "test:bridge": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@kaoto/camel-catalog": "^0.9.11",
@@ -94,6 +95,7 @@
     "style-loader": "3.3.3",
     "ts-loader": "9.4.4",
     "typescript": "^5.5.4",
+    "vitest": "^4.0.18",
     "vscode-extension-tester": "^8.26.1",
     "web-worker": "^1.5.0",
     "webpack": "5.109.2",

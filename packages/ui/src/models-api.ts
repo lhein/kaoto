@@ -17,3 +17,4 @@ export * from './models/step-update-action';
  */
 export type { KaotoEditorChannelApi } from './multiplying-architecture/KaotoEditorChannelApi';
 export type { Suggestion, SuggestionRequestContext } from '@kaoto/forms';
+export type { IEventBus, KaotoEvents, KaotoRequests, KaotoResponses } from './event-bus/types';

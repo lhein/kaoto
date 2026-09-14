@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 import * as vscode from 'vscode';
-import * as KogitoVsCode from '@kie-tools-core/vscode-extension/dist';
 import { TelemetryService } from '@redhat-developer/vscode-redhat-telemetry';
-import { COMMAND_CLOSE_SOURCE, COMMAND_OPEN_SOURCE, COMMAND_OPEN_WITH_KAOTO, COMMAND_REDO, COMMAND_UNDO } from '../../constants';
+import { COMMAND_CLOSE_SOURCE, COMMAND_OPEN_SOURCE, COMMAND_OPEN_WITH_KAOTO, COMMAND_REDO, COMMAND_UNDO, KAOTO_EDITOR_VIEW_TYPE } from '../../constants';
 import { sendCommandTrackingEvent } from './TrackingEvent';
 import { IRegistrar } from './IRegistrar';
 
 export class EditorRegistrar implements IRegistrar {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		private readonly kieEditorStore: KogitoVsCode.VsCodeKieEditorStore,
 		private readonly telemetryService: TelemetryService | undefined,
 	) {}
 
@@ -57,8 +55,10 @@ export class EditorRegistrar implements IRegistrar {
 
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(OPEN_SOURCE_COMMAND_ID, async () => {
-				if (this.kieEditorStore.activeEditor !== undefined) {
-					const doc = await vscode.workspace.openTextDocument(this.kieEditorStore.activeEditor?.document.document.uri);
+				// Find the active Kaoto custom editor URI from the active tab
+				const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+				if (activeTab?.input instanceof vscode.TabInputCustom && activeTab.input.viewType === KAOTO_EDITOR_VIEW_TYPE) {
+					const doc = await vscode.workspace.openTextDocument(activeTab.input.uri);
 					await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 					await sendCommandTrackingEvent(this.telemetryService, OPEN_SOURCE_COMMAND_ID);
 				}
@@ -73,7 +73,7 @@ export class EditorRegistrar implements IRegistrar {
 	public registerOpenWithKaoto() {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(COMMAND_OPEN_WITH_KAOTO, async (uri: vscode.Uri) => {
-				await vscode.commands.executeCommand('vscode.openWith', uri, 'webviewEditorsKaoto');
+				await vscode.commands.executeCommand('vscode.openWith', uri, KAOTO_EDITOR_VIEW_TYPE);
 				await sendCommandTrackingEvent(this.telemetryService, COMMAND_OPEN_WITH_KAOTO);
 			}),
 		);

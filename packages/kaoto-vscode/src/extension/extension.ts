@@ -13,15 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { backendI18nDefaults, backendI18nDictionaries } from '@kie-tools-core/backend/dist/i18n';
-import { VsCodeBackendProxy } from '@kie-tools-core/backend/dist/vscode';
-import { EditorEnvelopeLocator, EnvelopeContentType, EnvelopeMapping } from '@kie-tools-core/editor/dist/api';
-import { I18n } from '@kie-tools-core/i18n/dist/core';
-import * as KogitoVsCode from '@kie-tools-core/vscode-extension/dist';
 import { getRedHatService, TelemetryService } from '@redhat-developer/vscode-redhat-telemetry';
 import * as vscode from 'vscode';
-import { KAOTO_FILE_PATH_GLOB, VIEW_HELP } from '../constants';
-import { VSCodeKaotoChannelApiProducer } from './../webview/VSCodeKaotoChannelApiProducer';
+import { VIEW_HELP } from '../constants';
 import { KaotoOutputChannel } from './KaotoOutputChannel';
 import { PortManager } from '../services/PortManager';
 import { CamelExecutorFactory } from '../executors/CamelExecutorFactory';
@@ -36,8 +30,8 @@ import { DeploymentsRegistrar } from './registrars/DeploymentsRegistrar';
 import { TestsRegistrar } from './registrars/TestsRegistrar';
 import { InfrastructureRegistrar } from './registrars/InfrastructureRegistrar';
 import { OpenApiRegistrar } from './registrars/OpenApiRegistrar';
+import { KaotoEditorProvider } from './KaotoEditorProvider';
 
-let backendProxy: VsCodeBackendProxy;
 let telemetryService: TelemetryService;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -47,27 +41,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize executor factory with extension context
 	CamelExecutorFactory.initialize(context);
 
-	const backendI18n = new I18n(backendI18nDefaults, backendI18nDictionaries, vscode.env.language);
-	backendProxy = new VsCodeBackendProxy(context, backendI18n);
-
-	const kieEditorStore = await KogitoVsCode.startExtension({
-		extensionName: 'redhat.vscode-kaoto',
-		context: context,
-		viewType: 'webviewEditorsKaoto',
-		editorEnvelopeLocator: new EditorEnvelopeLocator('vscode', [
-			new EnvelopeMapping({
-				type: 'kaoto',
-				filePathGlob: KAOTO_FILE_PATH_GLOB,
-				resourcesPathPrefix: 'dist/webview/editors/kaoto',
-				envelopeContent: {
-					type: EnvelopeContentType.PATH,
-					path: 'dist/webview/KaotoEditorEnvelopeApp.js',
-				},
-			}),
-		]),
-		channelApiProducer: new VSCodeKaotoChannelApiProducer(),
-		backendProxy: backendProxy,
-	});
+	// Register the custom editor provider
+	context.subscriptions.push(KaotoEditorProvider.register(context));
 
 	const portManager = new PortManager();
 
@@ -93,7 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.window.registerTreeDataProvider(VIEW_HELP, new HelpFeedbackProvider(context.extensionUri.path)));
 
 	const registrars: IRegistrar[] = [
-		new EditorRegistrar(context, kieEditorStore, telemetryService),
+		new EditorRegistrar(context, telemetryService),
 		new IntegrationsRegistrar(context, telemetryService, portManager),
 		new DeploymentsRegistrar(context, telemetryService, portManager),
 		new InfrastructureRegistrar(context, telemetryService),
@@ -117,7 +92,6 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export async function deactivate() {
-	backendProxy?.stopServices();
 	await telemetryService.sendShutdownEvent();
 	KaotoOutputChannel.dispose();
 }

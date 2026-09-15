@@ -15,7 +15,7 @@
  */
 import vscode from 'vscode';
 import path from 'path'; // NOSONAR
-import { Suggestion } from '@kaoto/kaoto';
+import type { Suggestion } from './SuggestionRegistry';
 
 export async function findAllApplicationPropertiesFiles(startUri: vscode.Uri): Promise<vscode.Uri[]> {
 	let currentDir = path.dirname(startUri.fsPath);

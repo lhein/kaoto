@@ -17,7 +17,7 @@
 import path from 'path';
 import { expect } from 'chai';
 import { filterSuggestionsByWord, getSuggestions } from '../../services/SuggestionRegistry';
-import { Suggestion } from '@kaoto/kaoto';
+import type { Suggestion } from '../../services/SuggestionRegistry';
 
 suite('Channel API', () => {
 	suite('get Suggestions for OS environment variables', function () {

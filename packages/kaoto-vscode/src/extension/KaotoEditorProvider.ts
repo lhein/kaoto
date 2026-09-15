@@ -22,103 +22,114 @@ import { getSuggestions } from '../services/SuggestionRegistry';
 import { KaotoHostController, KaotoHostControllerOptions } from '../webview/bridge';
 
 function getNonce(): string {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
 }
 
-
-
 export class KaotoEditorProvider implements vscode.CustomTextEditorProvider {
-  static register(context: vscode.ExtensionContext): vscode.Disposable {
-    return vscode.window.registerCustomEditorProvider(
-      KAOTO_EDITOR_VIEW_TYPE,
-      new KaotoEditorProvider(context),
-      { webviewOptions: { retainContextWhenHidden: true } },
-    );
-  }
+	static register(context: vscode.ExtensionContext): vscode.Disposable {
+		return vscode.window.registerCustomEditorProvider(KAOTO_EDITOR_VIEW_TYPE, new KaotoEditorProvider(context), {
+			webviewOptions: { retainContextWhenHidden: true },
+		});
+	}
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+	constructor(private readonly context: vscode.ExtensionContext) {}
 
-  async resolveCustomTextEditor(
-    document: vscode.TextDocument,
-    panel: vscode.WebviewPanel,
-    _token: vscode.CancellationToken,
-  ): Promise<void> {
-    panel.webview.options = { enableScripts: true };
-    panel.webview.html = this.getWebviewHtml(panel.webview);
+	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel, _token: vscode.CancellationToken): Promise<void> {
+		panel.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist')],
+		};
+		panel.webview.html = this.getWebviewHtml(panel.webview);
 
-    const bus = new InMemoryEventBus();
-    const options = this.buildOptions(document);
-    const controller = new KaotoHostController(bus, options);
-    await controller.initialize(panel, document.uri.toString());
-  }
+		const bus = new InMemoryEventBus();
+		const catalogUrl = this.getCatalogUrl(panel.webview);
+		const options = this.buildOptions(document, catalogUrl);
+		const controller = new KaotoHostController(bus, options);
+		await controller.initialize(panel, document.uri.toString());
+	}
 
-  private getWebviewHtml(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'KaotoWebviewApp.js'),
-    );
-    const nonce = getNonce();
-    return `<!DOCTYPE html>
+	private getCatalogUrl(webview: vscode.Webview): string {
+		const customCatalogUrl = vscode.workspace.getConfiguration().get<string | null>('kaoto.catalog.url')?.trim();
+		if (customCatalogUrl) {
+			return customCatalogUrl;
+		}
+		return webview
+			.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'editors', 'kaoto', 'camel-catalog', 'index.json'))
+			.toString();
+	}
+
+	private getWebviewHtml(webview: vscode.Webview): string {
+		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'KaotoWebviewApp.js'));
+		const nonce = getNonce();
+		return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:;">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kaoto</title>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource} data:; connect-src ${webview.cspSource};">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Kaoto</title>
+		<style>
+			html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+			#root > *, .canvas-surface, .pf-v6-c-page, .pf-v6-c-page__main,
+			.pf-topology-container, .pf-topology-content,
+			#topology-resize-panel, .pf-v6-c-drawer, .pf-v6-c-drawer__main,
+			.pf-v6-c-drawer__content, .pf-v6-c-drawer__panel { height: 100% !important; }
+		</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+		<div id="root"></div>
+		<script nonce="${nonce}">window.__webpack_nonce__ = '${nonce}';</script>
+		<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
-  }
+	}
 
-  private buildOptions(document: vscode.TextDocument): KaotoHostControllerOptions {
-    return {
-      getSettings: async () => ({}),
-      getContent: async () => document.getText(),
-      getMetadata: async (_key) => undefined,
-      setMetadata: async (_key, _value) => {},
-      getResourceContent: async (relativePath) => {
-        try {
-          const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
-          return new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(targetFile)));
-        } catch {
-          return undefined;
-        }
-      },
-      saveResourceContent: async (relativePath, content) => {
-        const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
-        await vscode.workspace.fs.writeFile(vscode.Uri.file(targetFile), new TextEncoder().encode(content));
-      },
-      isResourceExist: async (relativePath) => {
-        try {
-          const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
-          await vscode.workspace.fs.stat(vscode.Uri.file(targetFile));
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      deleteResource: async (relativePath) => {
-        try {
-          const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
-          await vscode.workspace.fs.delete(vscode.Uri.file(targetFile));
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      getResourcesContentByType: async (_fileType) => [],
-      askUserForFileSelection: async (_include, _exclude, _options) => undefined,
-      getSuggestions: (topic, word, context) =>
-        getSuggestions(topic, word, context, document.uri.fsPath),
-      getRuntimeInfoFromMavenContext: () =>
-        MavenRuntimeDetector.getRuntimeInfoFromMavenContext(document.uri.fsPath),
-    };
-  }
+	private buildOptions(document: vscode.TextDocument, catalogUrl: string): KaotoHostControllerOptions {
+		return {
+			getSettings: async () => ({ catalogUrl }),
+			getContent: async () => document.getText(),
+			getMetadata: async (_key) => undefined,
+			setMetadata: async (_key, _value) => {},
+			getResourceContent: async (relativePath) => {
+				try {
+					const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
+					return new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(targetFile)));
+				} catch {
+					return undefined;
+				}
+			},
+			saveResourceContent: async (relativePath, content) => {
+				const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
+				await vscode.workspace.fs.writeFile(vscode.Uri.file(targetFile), new TextEncoder().encode(content));
+			},
+			isResourceExist: async (relativePath) => {
+				try {
+					const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
+					await vscode.workspace.fs.stat(vscode.Uri.file(targetFile));
+					return true;
+				} catch {
+					return false;
+				}
+			},
+			deleteResource: async (relativePath) => {
+				try {
+					const targetFile = path.resolve(path.dirname(document.uri.fsPath), relativePath);
+					await vscode.workspace.fs.delete(vscode.Uri.file(targetFile));
+					return true;
+				} catch {
+					return false;
+				}
+			},
+			getResourcesContentByType: async (_fileType) => [],
+			askUserForFileSelection: async (_include, _exclude, _options) => undefined,
+			getSuggestions: (topic, word, context) =>
+				getSuggestions(topic, word, context as import('../services/SuggestionRegistry').SuggestionRequestContext, document.uri.fsPath),
+			getRuntimeInfoFromMavenContext: () => MavenRuntimeDetector.getRuntimeInfoFromMavenContext(document.uri.fsPath),
+		};
+	}
 }

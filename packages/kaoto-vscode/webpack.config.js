@@ -152,21 +152,39 @@ const commonConfig = (env) => {
   };
 };
 
+/** Loader rules that silence CSS/SCSS/asset imports in non-web (node/webworker) bundles.
+ *  @kaoto/kaoto transitively imports these file types, but they have no meaning
+ *  in the extension-host or webworker context.
+ *  We use an inline loader that emits an empty module so webpack does not try
+ *  to parse binary / CSS files as JavaScript. */
+const nullLoader = path.resolve(__dirname, 'null-loader.cjs'); // NOSONAR
+
+const nonWebAssetRules = [
+  { test: /\.s[ac]ss$/i, use: [nullLoader] },
+  { test: /\.css$/, use: [nullLoader] },
+  { test: /\.(svg|png|jpg|jpeg|gif|ttf|eot|woff|woff2)$/i, use: [nullLoader] },
+];
+
 const webpack = async (env) => [
   merge(commonConfig(env), {
     target: 'node',
     entry: {
       'extension/extension': './src/extension/extension.ts',
     },
+    module: { rules: nonWebAssetRules },
   }),
   merge(commonConfig(env), {
     target: 'webworker',
     entry: {
       'extension/extensionWeb': './src/extension/extensionWeb.ts',
     },
+    module: { rules: nonWebAssetRules },
   }),
   merge(commonConfig(env), {
     target: 'web',
+    // Override devtool: eval-source-map from commonConfig uses eval() which is
+    // blocked by the webview Content Security Policy. Use source-map instead.
+    devtool: env.dev ? 'source-map' : false,
     entry: {
       'webview/KaotoWebviewApp': './src/webview/KaotoWebviewApp.ts',
     },

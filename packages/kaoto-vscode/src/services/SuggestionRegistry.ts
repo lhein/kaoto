@@ -17,7 +17,18 @@
 
 import { findAllApplicationPropertiesFiles, parseMultipleApplicationPropertiesFiles } from './ApplicationPropertiesFinder';
 import { Uri } from 'vscode';
-import { Suggestion, SuggestionRequestContext } from '@kaoto/kaoto';
+
+export interface Suggestion {
+	value: string;
+	description?: string;
+	group?: string;
+}
+
+export interface SuggestionRequestContext {
+	propertyName: string;
+	inputValue: string;
+	[key: string]: unknown;
+}
 
 export type SuggestionProviderFunction = (word: string, context: SuggestionRequestContext, fsPath?: string) => Suggestion[] | Promise<Suggestion[]>;
 

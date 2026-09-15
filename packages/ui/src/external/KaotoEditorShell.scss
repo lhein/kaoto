@@ -44,26 +44,23 @@
   --pf-v6-c-toolbar--PaddingBlockEnd: var(--pf-t--global--spacer--xs);
 }
 
-/* Match backgrounds with the properties panel (Card) so the canvas
-   rounded corners are visible */
+/* Ensure the topology stack fills the full height of the tab content */
 .canvas-surface .pf-v6-l-stack {
+  height: 100%;
   background-color: var(--pf-t--global--background--color--primary--default);
-  padding: 4px;
-
-  // stylelint-disable-next-line selector-class-pattern
-  > .pf-v6-l-stack__item:not(.pf-m-fill) {
-    border-radius: var(--pf-t--global--border--radius--medium);
-    overflow: hidden;
-  }
 
   > .pf-topology-container {
-    border-radius: var(--pf-t--global--border--radius--medium);
     overflow: hidden;
   }
 
   .pf-v6-c-divider {
     display: none;
   }
+}
+
+/* Match the canvas background to the shell so there is no visible gap */
+.pf-topology-content {
+  background-color: var(--pf-t--global--background--color--primary--default) !important;
 }
 
 .pf-v6-theme-dark img[alt='Kaoto DataMapper icon'] {

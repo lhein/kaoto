@@ -2,10 +2,7 @@
 
 export interface IEventBus {
   emit<E extends keyof KaotoEvents>(event: E, payload: KaotoEvents[E]): void;
-  on<E extends keyof KaotoEvents>(
-    event: E,
-    handler: (payload: KaotoEvents[E]) => void,
-  ): () => void;
+  on<E extends keyof KaotoEvents>(event: E, handler: (payload: KaotoEvents[E]) => void): () => void;
   request<Req extends keyof KaotoRequests, Res = KaotoResponses[Req]>(
     req: Req,
     payload: KaotoRequests[Req],

@@ -1,5 +1,6 @@
 // packages/ui/src/event-bus/InMemoryEventBus.test.ts
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { InMemoryEventBus } from './InMemoryEventBus';
 
 describe('InMemoryEventBus', () => {

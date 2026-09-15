@@ -1,11 +1,12 @@
 import { VisualizationProvider } from '@patternfly/react-topology';
 import { FunctionComponent, useContext, useEffect, useLayoutEffect, useMemo } from 'react';
 
-import { DesignerVisualization } from '../../components/Visualization';
 import { ControllerService } from '../../components/Visualization/Canvas/controller.service';
+import { ContextToolbar } from '../../components/Visualization/ContextToolbar/ContextToolbar';
 import { CatalogLoaderProvider } from '../../dynamic-catalog/catalog.provider';
+import { CatalogTilesProvider } from '../../dynamic-catalog/catalog-tiles.provider';
+import { DesignPage } from '../../pages/Design/DesignPage';
 import {
-  EntitiesContext,
   EntitiesProvider,
   KaotoResourceProvider,
   ReloadProvider,
@@ -16,10 +17,8 @@ import {
 } from '../../providers';
 import { EventNotifier } from '../../utils';
 
-const VisibleFlowsVisualization: FunctionComponent<{ className?: string }> = ({ className = '' }) => {
+const VisibleFlowsVisualization: FunctionComponent = () => {
   const { visualFlowsApi } = useContext(VisibleFlowsContext)!;
-  const entitiesContext = useContext(EntitiesContext);
-  const visualEntities = entitiesContext?.visualEntities ?? [];
 
   // `showFlows()` dispatches an action that returns a new `visibleFlows`
   // reference, so depending on `visibleFlows` here would re-run this effect
@@ -28,15 +27,14 @@ const VisibleFlowsVisualization: FunctionComponent<{ className?: string }> = ({ 
     visualFlowsApi.showFlows();
   }, [visualFlowsApi]);
 
-  return <DesignerVisualization className={`canvas-page ${className}`} entities={visualEntities} />;
+  return <DesignPage contextToolbar={<ContextToolbar />} />;
 };
 
 const Viz: FunctionComponent<{
   catalogUrl: string;
   runtimeCatalogName: string;
   testingCatalogName: string;
-  className?: string;
-}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, className = '' }) => {
+}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName }) => {
   const controller = useMemo(() => ControllerService.createController(), []);
 
   return (
@@ -50,11 +48,13 @@ const Viz: FunctionComponent<{
           <SchemasLoaderProvider>
             <CatalogLoaderProvider>
               <EntitiesProvider>
-                <VisualizationProvider controller={controller}>
-                  <VisibleFlowsProvider>
-                    <VisibleFlowsVisualization className={className} />
-                  </VisibleFlowsProvider>
-                </VisualizationProvider>
+                <CatalogTilesProvider>
+                  <VisualizationProvider controller={controller}>
+                    <VisibleFlowsProvider>
+                      <VisibleFlowsVisualization />
+                    </VisibleFlowsProvider>
+                  </VisualizationProvider>
+                </CatalogTilesProvider>
               </EntitiesProvider>
             </CatalogLoaderProvider>
           </SchemasLoaderProvider>
@@ -70,8 +70,7 @@ export const RouteVisualization: FunctionComponent<{
   testingCatalogName: string;
   code: string;
   codeChange: (code: string) => void;
-  className?: string;
-}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, code, codeChange, className }) => {
+}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, code, codeChange }) => {
   const eventNotifier = EventNotifier.getInstance();
 
   useLayoutEffect(() => {
@@ -85,11 +84,6 @@ export const RouteVisualization: FunctionComponent<{
   }, [code, eventNotifier]);
 
   return (
-    <Viz
-      catalogUrl={catalogUrl}
-      runtimeCatalogName={runtimeCatalogName}
-      testingCatalogName={testingCatalogName}
-      className={className}
-    />
+    <Viz catalogUrl={catalogUrl} runtimeCatalogName={runtimeCatalogName} testingCatalogName={testingCatalogName} />
   );
 };

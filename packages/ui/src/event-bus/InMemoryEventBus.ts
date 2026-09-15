@@ -18,10 +18,7 @@ export class InMemoryEventBus implements IEventBus {
     }
   }
 
-  on<E extends keyof KaotoEvents>(
-    event: E,
-    handler: (payload: KaotoEvents[E]) => void,
-  ): () => void {
+  on<E extends keyof KaotoEvents>(event: E, handler: (payload: KaotoEvents[E]) => void): () => void {
     if (!this.eventListeners.has(event as string)) {
       this.eventListeners.set(event as string, new Set());
     }
@@ -46,13 +43,13 @@ export class InMemoryEventBus implements IEventBus {
     payload: KaotoRequests[Req],
     timeoutMs = 5_000,
   ): Promise<Res> {
-    const handler = this.requestHandlers.get(req as string) as
-      | RequestHandler<Req>
-      | undefined;
+    const handler = this.requestHandlers.get(req as string) as RequestHandler<Req> | undefined;
 
     if (!handler) {
       return new Promise<Res>((_, reject) =>
-        setTimeout(() => reject(new Error(`IEventBus request timeout: ${String(req)}`)), timeoutMs),
+        setTimeout(() => {
+          reject(new Error(`IEventBus request timeout: ${String(req)}`));
+        }, timeoutMs),
       );
     }
 

@@ -50,6 +50,7 @@
   background-color: var(--pf-t--global--background--color--primary--default);
   padding: 4px;
 
+  // stylelint-disable-next-line selector-class-pattern
   > .pf-v6-l-stack__item:not(.pf-m-fill) {
     border-radius: var(--pf-t--global--border--radius--medium);
     overflow: hidden;

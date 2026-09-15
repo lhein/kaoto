@@ -1,15 +1,15 @@
 import { createHashRouter } from 'react-router-dom';
 
 import { ContextToolbar } from '../components/Visualization/ContextToolbar';
+import { AboutPage } from '../pages/About/AboutPage';
+import { BeansPage } from '../pages/Beans/BeansPage';
+import { DataMapperPage } from '../pages/DataMapper/DataMapperPage';
+import { DataMapperHowToPage } from '../pages/DataMapperHowTo/DataMapperHowToPage';
 import { DesignPage } from '../pages/Design/DesignPage';
 import { ErrorPage } from '../pages/ErrorPage';
-import { BeansPage } from '../pages/Beans/BeansPage';
-import { RestDslEditorPage } from '../pages/RestDslEditor/RestDslEditorPage';
 import { MetadataPage } from '../pages/Metadata/MetadataPage';
 import { PipeErrorHandlerPage } from '../pages/PipeErrorHandler/PipeErrorHandlerPage';
-import { DataMapperHowToPage } from '../pages/DataMapperHowTo/DataMapperHowToPage';
-import { AboutPage } from '../pages/About/AboutPage';
-import { DataMapperPage } from '../pages/DataMapper/DataMapperPage';
+import { RestDslEditorPage } from '../pages/RestDslEditor/RestDslEditorPage';
 import { Links } from '../router/links.models';
 import { KaotoEditorShell } from './KaotoEditorShell';
 

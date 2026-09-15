@@ -3,8 +3,8 @@ import { FunctionComponent, useEffect, useLayoutEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 
 import { ControllerService } from '../components/Visualization/Canvas/controller.service';
-import { CatalogTilesProvider } from '../dynamic-catalog/catalog-tiles.provider';
 import { CatalogLoaderProvider } from '../dynamic-catalog/catalog.provider';
+import { CatalogTilesProvider } from '../dynamic-catalog/catalog-tiles.provider';
 import {
   EntitiesProvider,
   KaotoResourceProvider,
@@ -77,10 +77,6 @@ export const KaotoEditorView: FunctionComponent<{
   }, [code, eventNotifier]);
 
   return (
-    <Viz
-      catalogUrl={catalogUrl}
-      runtimeCatalogName={runtimeCatalogName}
-      testingCatalogName={testingCatalogName}
-    />
+    <Viz catalogUrl={catalogUrl} runtimeCatalogName={runtimeCatalogName} testingCatalogName={testingCatalogName} />
   );
 };

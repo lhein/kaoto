@@ -9,6 +9,7 @@ import '@patternfly/react-topology/dist/esm/css/topology-side-bar.css';
 import { InMemoryEventBus, RouteVisualization, SuggestionRegistryProvider } from '@kaoto/kaoto';
 import React, { createElement, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { PostMessageBridge } from './bridge/PostMessageBridge';
 
 declare const acquireVsCodeApi: () => { postMessage: (msg: unknown) => void };
@@ -65,18 +66,22 @@ const KaotoApp: React.FC = () => {
 	}
 
 	return createElement(
-		SuggestionRegistryProvider,
+		MemoryRouter,
 		null,
-		createElement(RouteVisualization, {
-			catalogUrl: settings.catalogUrl,
-			runtimeCatalogName: settings.runtimeCatalogName,
-			testingCatalogName: settings.testingCatalogName,
-			code,
-			codeChange: (newCode: string) => {
-				setCode(newCode);
-				bus.emit('editor:document:changed', { content: newCode, isDirty: true });
-			},
-		}),
+		createElement(
+			SuggestionRegistryProvider,
+			null,
+			createElement(RouteVisualization, {
+				catalogUrl: settings.catalogUrl,
+				runtimeCatalogName: settings.runtimeCatalogName,
+				testingCatalogName: settings.testingCatalogName,
+				code,
+				codeChange: (newCode: string) => {
+					setCode(newCode);
+					bus.emit('editor:document:changed', { content: newCode, isDirty: true });
+				},
+			}),
+		),
 	);
 };
 

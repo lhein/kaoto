@@ -17,6 +17,7 @@ import { InMemoryEventBus } from '@kaoto/kaoto';
 import * as path from 'path'; // NOSONAR
 import * as vscode from 'vscode';
 import { KAOTO_EDITOR_VIEW_TYPE } from '../constants';
+import { KaotoCatalogService } from '../services/KaotoCatalogService';
 import { MavenRuntimeDetector } from '../services/MavenRuntimeDetector';
 import { getSuggestions } from '../services/SuggestionRegistry';
 import { KaotoHostController, KaotoHostControllerOptions } from '../webview/bridge';
@@ -91,7 +92,25 @@ export class KaotoEditorProvider implements vscode.CustomTextEditorProvider {
 
 	private buildOptions(document: vscode.TextDocument, catalogUrl: string): KaotoHostControllerOptions {
 		return {
-			getSettings: async () => ({ catalogUrl }),
+			getSettings: async () => {
+				let runtimeCatalogName: string | undefined;
+				let testingCatalogName: string | undefined;
+				try {
+					const catalogService = KaotoCatalogService.getInstance();
+					const catalog = await catalogService.getSelectedCatalog(document.uri);
+					if (catalog) {
+						const isCitrus = catalog.runtime.toLowerCase() === 'citrus';
+						if (isCitrus) {
+							testingCatalogName = catalog.name;
+						} else {
+							runtimeCatalogName = catalog.name;
+						}
+					}
+				} catch {
+					// KaotoCatalogService not yet initialized — use defaults
+				}
+				return { catalogUrl, runtimeCatalogName, testingCatalogName };
+			},
 			getContent: async () => document.getText(),
 			getMetadata: async (_key) => undefined,
 			setMetadata: async (_key, _value) => {},

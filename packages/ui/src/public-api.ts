@@ -14,3 +14,4 @@ export * from './models/step-update-action';
 export * from './pages/Metadata/MetadataPage';
 export * from './pages/PipeErrorHandler/PipeErrorHandlerPage';
 export * from './event-bus';
+export { SuggestionRegistryProvider } from '@kaoto/forms';

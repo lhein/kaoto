@@ -6,7 +6,7 @@ import '@patternfly/react-topology/dist/esm/css/topology-components.css';
 import '@patternfly/react-topology/dist/esm/css/topology-view.css';
 import '@patternfly/react-topology/dist/esm/css/topology-controlbar.css';
 import '@patternfly/react-topology/dist/esm/css/topology-side-bar.css';
-import { InMemoryEventBus, RouteVisualization } from '@kaoto/kaoto';
+import { InMemoryEventBus, RouteVisualization, SuggestionRegistryProvider } from '@kaoto/kaoto';
 import React, { createElement, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PostMessageBridge } from './bridge/PostMessageBridge';
@@ -64,16 +64,20 @@ const KaotoApp: React.FC = () => {
 		return null;
 	}
 
-	return createElement(RouteVisualization, {
-		catalogUrl: settings.catalogUrl,
-		runtimeCatalogName: settings.runtimeCatalogName,
-		testingCatalogName: settings.testingCatalogName,
-		code,
-		codeChange: (newCode: string) => {
-			setCode(newCode);
-			bus.emit('editor:document:changed', { content: newCode, isDirty: true });
-		},
-	});
+	return createElement(
+		SuggestionRegistryProvider,
+		null,
+		createElement(RouteVisualization, {
+			catalogUrl: settings.catalogUrl,
+			runtimeCatalogName: settings.runtimeCatalogName,
+			testingCatalogName: settings.testingCatalogName,
+			code,
+			codeChange: (newCode: string) => {
+				setCode(newCode);
+				bus.emit('editor:document:changed', { content: newCode, isDirty: true });
+			},
+		}),
+	);
 };
 
 const container = document.getElementById('root');

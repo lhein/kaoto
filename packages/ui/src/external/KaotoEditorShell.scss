@@ -4,8 +4,7 @@
   display: flex;
   flex-flow: column nowrap;
   position: relative;
-  background-color: var(--pf-t--global--background--color--secondary--default);
-  border-radius: var(--pf-t--global--border--radius--medium);
+  background-color: var(--pf-t--global--background--color--primary--default);
   overflow: hidden;
 
   // Tab header shouldn't grow or shrink

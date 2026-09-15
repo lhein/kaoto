@@ -1,0 +1,70 @@
+.shell {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-flow: column nowrap;
+  position: relative;
+  background-color: var(--pf-t--global--background--color--secondary--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  overflow: hidden;
+
+  // Tab header shouldn't grow or shrink
+  > div[role='region'] {
+    flex-grow: 0;
+    flex-shrink: 0;
+
+    // Each Tab is wrapped in a react-router <Link>, i.e. an <a>. PatternFly 6 base styles
+    // underline every anchor by default and that decoration propagates to the tab text.
+    // Tabs are navigation controls, not inline links, so drop it here.
+    a {
+      text-decoration: none;
+    }
+  }
+
+  // Tab content for Design canvas is not scrollable
+  div#{&}__tab-content {
+    flex-grow: 1;
+    flex-shrink: 1;
+    position: relative;
+  }
+
+  // Tab content is scrollable
+  div#{&}__tab-content--scrollable {
+    padding: 0 15px 15px;
+    overflow: scroll;
+  }
+}
+
+.context-toolbar {
+  padding: var(--pf-t--global--spacer--xs);
+}
+
+/* Reduce outer toolbar padding to minimize space between divider and canvas */
+.canvas-surface .pf-v6-c-toolbar {
+  --pf-v6-c-toolbar--PaddingBlockEnd: var(--pf-t--global--spacer--xs);
+}
+
+/* Match backgrounds with the properties panel (Card) so the canvas
+   rounded corners are visible */
+.canvas-surface .pf-v6-l-stack {
+  background-color: var(--pf-t--global--background--color--primary--default);
+  padding: 4px;
+
+  > .pf-v6-l-stack__item:not(.pf-m-fill) {
+    border-radius: var(--pf-t--global--border--radius--medium);
+    overflow: hidden;
+  }
+
+  > .pf-topology-container {
+    border-radius: var(--pf-t--global--border--radius--medium);
+    overflow: hidden;
+  }
+
+  .pf-v6-c-divider {
+    display: none;
+  }
+}
+
+.pf-v6-theme-dark img[alt='Kaoto DataMapper icon'] {
+  filter: invert(1);
+}

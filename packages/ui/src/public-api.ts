@@ -8,6 +8,7 @@ export * from './components/Visualization';
 export * from './components/Visualization/Canvas';
 export * from './components/Visualization/ContextToolbar';
 export * from './event-bus';
+export * from './external/KaotoEditorView';
 export * from './external/RouteVisualization/RouteVisualization';
 export * from './models/catalog-kind';
 export * from './models/runtime-maven-information';

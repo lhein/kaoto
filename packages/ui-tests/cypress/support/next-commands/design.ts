@@ -3,16 +3,25 @@ Cypress.Commands.add('fitToScreen', () => {
 });
 
 Cypress.Commands.add('openStepConfigurationTab', (step: string, stepIndex = 0) => {
-  cy.get(`g[data-nodelabel^="${step}"]`).eq(stepIndex).click({ force: true });
+  cy.get(`g[data-nodelabel^="${step}"]`).eq(stepIndex).then(openConfiguration);
 });
 
 Cypress.Commands.add('openStepConfigurationTabByPath', (path: string) => {
-  cy.get(`g[data-testid="${path}"]`).click({ force: true });
+  cy.get(`g[data-testid="${path}"]`).then(openConfiguration);
 });
 
 Cypress.Commands.add('openGroupConfigurationTab', (group: string, groupIndex = 0) => {
-  cy.get(`g[data-grouplabel^="${group}"]`).eq(groupIndex).click({ force: true });
+  cy.get(`g[data-grouplabel^="${group}"]`).eq(groupIndex).then(openConfiguration);
 });
+
+function openConfiguration(node: JQuery<HTMLElement>) {
+  // Clicking an already selected step toggles its properties panel closed.
+  if (node.attr('data-selected') !== 'true') {
+    cy.wrap(node).click({ force: true });
+  }
+  cy.wrap(node).should('have.attr', 'data-selected', 'true');
+  cy.get('[data-testid="close-side-bar"]').should('be.visible');
+}
 
 Cypress.Commands.add('toggleExpandGroup', (groupName: string) => {
   cy.get(`span[title="${groupName}"]`).click({ force: true });

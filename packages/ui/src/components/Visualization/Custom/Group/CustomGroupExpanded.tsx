@@ -255,6 +255,7 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
           {/** This node appears when nothing is dragging and acts as the dummy node when container is dragged*/}
           <foreignObject
             className="custom-group__body"
+            opacity={isDraggingGroup || refreshGroup ? 0.5 : undefined}
             data-nodelabel={label}
             x={boxRef.current.x - GROUP_PAINT_PADDING}
             y={boxRef.current.y - GROUP_PAINT_PADDING}

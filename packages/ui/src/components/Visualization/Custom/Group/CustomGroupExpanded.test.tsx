@@ -17,7 +17,7 @@ import { SettingsProvider } from '../../../../providers/settings.provider';
 import { TestProvidersWrapper } from '../../../../stubs';
 import { TopologyElementWrapper } from '../../../../stubs/topology-element-wrapper';
 import { ControllerService } from '../../Canvas/controller.service';
-import { NODE_DRAG_TYPE } from '../customComponentUtils';
+import { GROUP_DRAG_TYPE, NODE_DRAG_TYPE } from '../customComponentUtils';
 import { CustomGroupExpanded } from './CustomGroupExpanded';
 
 const GROUP_ID = 'node-choice-1';
@@ -81,6 +81,52 @@ describe('CustomGroupExpanded', () => {
 
     return vizNode;
   };
+
+  it.each(['self', 'ancestor'] as const)(
+    'dims the SVG body during %s drag and restores it after cancellation',
+    async (dragTarget) => {
+      const vizNode = createChoiceVizNode();
+      const ancestor = createChoiceVizNode({ path: 'route.from.steps.0' });
+      vi.spyOn(vizNode, 'getId').mockReturnValue('route');
+      vi.spyOn(ancestor, 'getId').mockReturnValue('route');
+      createController({ vizNode }, [
+        {
+          id: 'ancestor',
+          type: 'group',
+          group: true,
+          x: 0,
+          y: 0,
+          width: 500,
+          height: 400,
+          data: { vizNode: ancestor },
+        },
+      ]);
+      const element = controller.getNodeById(GROUP_ID)!;
+      const { container } = await renderInContext(<CustomGroupExpanded element={element} />);
+      const body = container.querySelector('.custom-group__body');
+      const dropArea = container.querySelector('.custom-group__drop-area');
+      expect(body).not.toHaveAttribute('opacity');
+      const manager: DndManager = controller.getStore<DndStore>().dndManager;
+      const [source] = manager.registerSource({
+        type: GROUP_DRAG_TYPE,
+        canDrag: () => true,
+        beginDrag: () => (dragTarget === 'self' ? element : controller.getNodeById('ancestor')!),
+        drag: () => {},
+        endDrag: () => {},
+        canCancel: () => true,
+      });
+      act(() => {
+        manager.beginDrag(source, undefined, 10, 10, 10, 10);
+      });
+      expect(body).toHaveAttribute('opacity', '0.5');
+      expect(dropArea).not.toHaveAttribute('opacity');
+      await act(async () => {
+        manager.cancel();
+        await manager.endDrag();
+      });
+      expect(body).not.toHaveAttribute('opacity');
+    },
+  );
 
   it('should throw when element is not a Node', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

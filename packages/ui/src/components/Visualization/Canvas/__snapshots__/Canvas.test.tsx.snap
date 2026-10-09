@@ -75,6 +75,14 @@ exports[`Canvas > Catalog button > should NOT be present if \`CatalogModalContex
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="1357"
+                                width="732"
+                                x="31.5"
+                                y="31.5"
+                              />
                               <foreignobject
                                 data-nodelabel="route-8888"
                                 height="1350"
@@ -125,6 +133,14 @@ exports[`Canvas > Catalog button > should NOT be present if \`CatalogModalContex
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="687"
+                                width="652"
+                                x="71.5"
+                                y="376.5"
+                              />
                               <foreignobject
                                 data-nodelabel="choice"
                                 height="680"
@@ -175,6 +191,14 @@ exports[`Canvas > Catalog button > should NOT be present if \`CatalogModalContex
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="297"
+                                width="177"
+                                x="256.5"
+                                y="571.5"
+                              />
                               <foreignobject
                                 data-nodelabel="when"
                                 height="290"
@@ -1010,6 +1034,14 @@ exports[`Canvas > Catalog button > should be present if \`CatalogModalContext\` 
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="1357"
+                                width="732"
+                                x="31.5"
+                                y="31.5"
+                              />
                               <foreignobject
                                 data-nodelabel="route-8888"
                                 height="1350"
@@ -1060,6 +1092,14 @@ exports[`Canvas > Catalog button > should be present if \`CatalogModalContext\` 
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="687"
+                                width="652"
+                                x="71.5"
+                                y="376.5"
+                              />
                               <foreignobject
                                 data-nodelabel="choice"
                                 height="680"
@@ -1110,6 +1150,14 @@ exports[`Canvas > Catalog button > should be present if \`CatalogModalContext\` 
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="297"
+                                width="177"
+                                x="256.5"
+                                y="571.5"
+                              />
                               <foreignobject
                                 data-nodelabel="when"
                                 height="290"
@@ -1977,6 +2025,14 @@ exports[`Canvas > should render correctly 1`] = `
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="1357"
+                                width="732"
+                                x="31.5"
+                                y="31.5"
+                              />
                               <foreignobject
                                 data-nodelabel="route-8888"
                                 height="1350"
@@ -2027,6 +2083,14 @@ exports[`Canvas > should render correctly 1`] = `
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="687"
+                                width="652"
+                                x="71.5"
+                                y="376.5"
+                              />
                               <foreignobject
                                 data-nodelabel="choice"
                                 height="680"
@@ -2077,6 +2141,14 @@ exports[`Canvas > should render correctly 1`] = `
                               role="button"
                               tabindex="-1"
                             >
+                              <rect
+                                aria-hidden="true"
+                                class="custom-group__focus-ring"
+                                height="297"
+                                width="177"
+                                x="256.5"
+                                y="571.5"
+                              />
                               <foreignobject
                                 data-nodelabel="when"
                                 height="290"

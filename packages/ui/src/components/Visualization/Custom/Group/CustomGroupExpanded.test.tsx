@@ -1,4 +1,12 @@
-import { BaseEdge, DndManager, DndManagerImpl, DndStore, NodeModel, Visualization } from '@patternfly/react-topology';
+import {
+  BaseEdge,
+  DndManager,
+  DndManagerImpl,
+  DndStore,
+  NodeModel,
+  Rect,
+  Visualization,
+} from '@patternfly/react-topology';
 import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 
@@ -102,6 +110,31 @@ describe('CustomGroupExpanded', () => {
     const group = await screen.findByTestId('custom-group__choice-1');
     expect(group).toBeInTheDocument();
     expect(group).toHaveAttribute('data-grouplabel', 'Choice');
+  });
+
+  it('keeps the SVG focus ring around the group when its bounds change', async () => {
+    const vizNode = createChoiceVizNode();
+    createController({ vizNode });
+    const element = controller.getNodeById(GROUP_ID)!;
+    await renderInContext(<CustomGroupExpanded element={element} selected />);
+
+    const group = await screen.findByTestId('custom-group__choice-1');
+    const ring = group.querySelector(':scope > rect.custom-group__focus-ring');
+    expect(ring).toBeInTheDocument();
+    expect(ring).toHaveAttribute('aria-hidden', 'true');
+    expect(ring).toHaveAttribute('x', '-3.5');
+    expect(ring).toHaveAttribute('y', '-3.5');
+    expect(ring).toHaveAttribute('width', '107');
+    expect(ring).toHaveAttribute('height', '57');
+
+    act(() => {
+      element.setBounds(new Rect(40, 60, 200, 100));
+    });
+
+    expect(ring).toHaveAttribute('x', '36.5');
+    expect(ring).toHaveAttribute('y', '56.5');
+    expect(ring).toHaveAttribute('width', '207');
+    expect(ring).toHaveAttribute('height', '107');
   });
 
   it('should fall back to iconAlt for the image alt text when description is empty', async () => {

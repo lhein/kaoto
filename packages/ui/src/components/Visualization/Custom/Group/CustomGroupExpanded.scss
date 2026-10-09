@@ -128,14 +128,20 @@
       }
     }
 
-    /*
-     * Keyboard focus ring for groups — same :focus rationale as custom-node.
-     * Must appear after &__container to satisfy no-descending-specificity.
-     * Targets the container div (the visible blue header bar).
-     */
-    &:focus &__container {
-      outline: 3px solid var(--pf-t--global--color--brand--default);
-      outline-offset: 2px;
+    // Paint the focus ring in SVG. An HTML outline overflowing foreignObject
+    // can leave trails when Safari repaints the moved group (WebKit bug 207421).
+    &__focus-ring {
+      fill: none;
+      stroke: var(--pf-t--global--color--brand--default);
+      stroke-width: 3px;
+      rx: calc(var(--custom-node-BorderRadius) + 3.5px);
+      pointer-events: none;
+      visibility: hidden;
+    }
+
+    // SVG groups focused through keyboard navigation need :focus in Chromium.
+    &:focus > &__focus-ring {
+      visibility: visible;
     }
 
     &__disabled-icon {

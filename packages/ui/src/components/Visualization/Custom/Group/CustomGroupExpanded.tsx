@@ -57,6 +57,9 @@ import {
 import { TargetAnchor } from '../target-anchor';
 import { CustomGroupProps } from './Group.models';
 
+// The 3px stroke is centered 2px outside the group, matching the former HTML outline.
+const FOCUS_RING_OFFSET = 3.5;
+
 export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = observer(
   ({ element, onContextMenu, onCollapseToggle, selected, onSelect }) => {
     if (!isNode(element)) {
@@ -231,6 +234,14 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
           onKeyDown={handleKeyDown}
           onContextMenu={onContextMenu}
         >
+          <rect
+            className="custom-group__focus-ring"
+            aria-hidden="true"
+            x={boxRef.current.x - FOCUS_RING_OFFSET}
+            y={boxRef.current.y - FOCUS_RING_OFFSET}
+            width={boxRef.current.width + 2 * FOCUS_RING_OFFSET}
+            height={boxRef.current.height + 2 * FOCUS_RING_OFFSET}
+          />
           {/** This node appears when nothing is dragging and acts as the dummy node when container is dragged*/}
           <foreignObject
             ref={dndDropRef}

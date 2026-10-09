@@ -80,10 +80,6 @@
         @include dnd.cursor-grabbing;
       }
 
-      &__draggedNode {
-        @include custom.drag-node;
-      }
-
       &:hover &__image,
       &:hover .step-icon,
       [data-toolbar-open='true'] & &__image,

@@ -294,6 +294,7 @@ const CustomNodeInner: FunctionComponent<CustomNodeProps> = observer(
               ProcessorIcon={ProcessorIcon}
               processorDescription={processorDescription}
               isDisabled={isDisabled}
+              isDragging={isDraggedNode}
             />
           )}
 
@@ -313,6 +314,7 @@ const CustomNodeInner: FunctionComponent<CustomNodeProps> = observer(
               ProcessorIcon={ProcessorIcon}
               processorDescription={processorDescription}
               isDisabled={isDisabled}
+              isDragging={isDraggedNode}
             />
           )}
 

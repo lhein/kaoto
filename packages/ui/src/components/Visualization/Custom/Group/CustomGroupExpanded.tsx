@@ -321,6 +321,7 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
                 ProcessorIcon={ProcessorIcon}
                 processorDescription={processorDescription}
                 isDisabled={isDisabled}
+                isDragging
               />
             </Layer>
           )}

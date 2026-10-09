@@ -59,6 +59,8 @@ import { CustomGroupProps } from './Group.models';
 
 // The 3px stroke is centered 2px outside the group, matching the former HTML outline.
 const FOCUS_RING_OFFSET = 3.5;
+// Keep shadows inside a clipped foreignObject so WebKit repaints their old bounds.
+const GROUP_PAINT_PADDING = 24;
 
 export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = observer(
   ({ element, onContextMenu, onCollapseToggle, selected, onSelect }) => {
@@ -242,50 +244,63 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
             width={boxRef.current.width + 2 * FOCUS_RING_OFFSET}
             height={boxRef.current.height + 2 * FOCUS_RING_OFFSET}
           />
-          {/** This node appears when nothing is dragging and acts as the dummy node when container is dragged*/}
-          <foreignObject
+          <rect
             ref={dndDropRef}
-            data-nodelabel={label}
+            className="custom-group__drop-area"
+            aria-hidden="true"
             x={boxRef.current.x}
             y={boxRef.current.y}
             width={boxRef.current.width}
             height={boxRef.current.height}
+            fill="none"
+            pointerEvents="none"
+          />
+          {/** This node appears when nothing is dragging and acts as the dummy node when container is dragged*/}
+          <foreignObject
+            className="custom-group__body"
+            data-nodelabel={label}
+            x={boxRef.current.x - GROUP_PAINT_PADDING}
+            y={boxRef.current.y - GROUP_PAINT_PADDING}
+            width={boxRef.current.width + 2 * GROUP_PAINT_PADDING}
+            height={boxRef.current.height + 2 * GROUP_PAINT_PADDING}
           >
-            <div
-              data-testid={`${groupVizNode.getId()}|${groupVizNode.id}`}
-              className={clsx('custom-group__container', mainContainerClassNames)}
-            >
+            <div className="custom-group__paint-area" style={{ padding: GROUP_PAINT_PADDING }}>
               <div
-                ref={dragGroupRef}
-                data-testid={`${groupVizNode.getId()}|${groupVizNode.id}|drag-handle`}
-                className={clsx('custom-group__container__text', {
-                  'custom-group__container__text__draggable': canDragGroup(groupVizNode),
-                })}
-                title={groupVizNode.data.description}
+                data-testid={`${groupVizNode.getId()}|${groupVizNode.id}`}
+                className={clsx('custom-group__container', mainContainerClassNames)}
               >
-                {doesHaveWarnings ? (
-                  <div className="custom-group__container__icon-placeholder" />
-                ) : (
-                  groupVizNode.data.iconUrl && (
-                    <img
-                      src={groupVizNode.data.iconUrl}
-                      alt={
-                        groupVizNode.data.description ||
-                        (typeof groupVizNode.data.iconAlt === 'string' ? groupVizNode.data.iconAlt : '')
-                      }
-                    />
-                  )
+                <div
+                  ref={dragGroupRef}
+                  data-testid={`${groupVizNode.getId()}|${groupVizNode.id}|drag-handle`}
+                  className={clsx('custom-group__container__text', {
+                    'custom-group__container__text__draggable': canDragGroup(groupVizNode),
+                  })}
+                  title={groupVizNode.data.description}
+                >
+                  {doesHaveWarnings ? (
+                    <div className="custom-group__container__icon-placeholder" />
+                  ) : (
+                    groupVizNode.data.iconUrl && (
+                      <img
+                        src={groupVizNode.data.iconUrl}
+                        alt={
+                          groupVizNode.data.description ||
+                          (typeof groupVizNode.data.iconAlt === 'string' ? groupVizNode.data.iconAlt : '')
+                        }
+                      />
+                    )
+                  )}
+                  <span title={label}>{label}</span>
+
+                  <RenderingAnchor anchorTag={Anchors.CanvasGroupTitlebar} vizNode={groupVizNode} />
+                </div>
+
+                {isDisabled && !doesHaveWarnings && (
+                  <Icon className="custom-group__disabled-icon" title="Step disabled">
+                    <BanIcon />
+                  </Icon>
                 )}
-                <span title={label}>{label}</span>
-
-                <RenderingAnchor anchorTag={Anchors.CanvasGroupTitlebar} vizNode={groupVizNode} />
               </div>
-
-              {isDisabled && !doesHaveWarnings && (
-                <Icon className="custom-group__disabled-icon" title="Step disabled">
-                  <BanIcon />
-                </Icon>
-              )}
             </div>
           </foreignObject>
 

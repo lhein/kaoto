@@ -112,6 +112,38 @@ describe('CustomGroupExpanded', () => {
     expect(group).toHaveAttribute('data-grouplabel', 'Choice');
   });
 
+  it('includes room for the group shadow inside the foreignObject paint bounds', async () => {
+    const vizNode = createChoiceVizNode();
+    createController({ vizNode });
+    const element = controller.getNodeById(GROUP_ID)!;
+    await renderInContext(<CustomGroupExpanded element={element} />);
+
+    const group = await screen.findByTestId('custom-group__choice-1');
+    const body = group.querySelector('foreignObject.custom-group__body');
+    expect(body).toHaveAttribute('x', '-24');
+    expect(body).toHaveAttribute('y', '-24');
+    expect(body).toHaveAttribute('width', '148');
+    expect(body).toHaveAttribute('height', '98');
+    const dropArea = group.querySelector('rect.custom-group__drop-area');
+    expect(dropArea).toHaveAttribute('x', '0');
+    expect(dropArea).toHaveAttribute('y', '0');
+    expect(dropArea).toHaveAttribute('width', '100');
+    expect(dropArea).toHaveAttribute('height', '50');
+
+    act(() => {
+      element.setBounds(new Rect(40, 60, 200, 100));
+    });
+
+    expect(body).toHaveAttribute('x', '16');
+    expect(body).toHaveAttribute('y', '36');
+    expect(body).toHaveAttribute('width', '248');
+    expect(body).toHaveAttribute('height', '148');
+    expect(dropArea).toHaveAttribute('x', '40');
+    expect(dropArea).toHaveAttribute('y', '60');
+    expect(dropArea).toHaveAttribute('width', '200');
+    expect(dropArea).toHaveAttribute('height', '100');
+  });
+
   it('keeps the SVG focus ring around the group when its bounds change', async () => {
     const vizNode = createChoiceVizNode();
     createController({ vizNode });

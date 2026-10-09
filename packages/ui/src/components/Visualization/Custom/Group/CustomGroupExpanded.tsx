@@ -38,7 +38,7 @@ import { Anchors } from '../../../registers/anchors';
 import { NodeInteractionAddonContext } from '../../../registers/interactions/node-interaction-addon.provider';
 import { RenderingAnchor } from '../../../RenderingAnchor/RenderingAnchor';
 import { CanvasDefaults } from '../../Canvas/canvas.defaults';
-import { StepToolbar } from '../../Canvas/StepToolbar/StepToolbar';
+import { StepToolbarOverlay } from '../../Canvas/StepToolbar/StepToolbarOverlay';
 import {
   canDragGroup,
   getDropTargetContainerClassNames,
@@ -214,9 +214,6 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
       boxRef.current = box;
     }
 
-    const toolbarX = boxRef.current.x + (boxRef.current.width - CanvasDefaults.STEP_TOOLBAR_WIDTH) / 2;
-    const toolbarY = boxRef.current.y - CanvasDefaults.STEP_TOOLBAR_HEIGHT;
-
     return (
       <Layer id={GROUPS_LAYER} data-lastupdate={lastUpdate}>
         <g
@@ -345,21 +342,16 @@ export const CustomGroupExpandedInner: FunctionComponent<CustomGroupProps> = obs
           )}
           {!dndDropProps.droppable && shouldShowToolbar && (
             <Layer id={TOP_LAYER}>
-              <foreignObject
-                ref={toolbarHoverRef}
+              <StepToolbarOverlay
+                foreignObjectRef={toolbarHoverRef}
                 className="custom-group__toolbar"
-                x={toolbarX}
-                y={toolbarY}
-                width={CanvasDefaults.STEP_TOOLBAR_WIDTH}
-                height={CanvasDefaults.STEP_TOOLBAR_HEIGHT}
-              >
-                <StepToolbar
-                  data-testid="step-toolbar"
-                  vizNode={groupVizNode}
-                  isCollapsed={element.isCollapsed()}
-                  onCollapseToggle={onCollapseToggle}
-                />
-              </foreignObject>
+                centerX={boxRef.current.x + boxRef.current.width / 2}
+                bottomY={boxRef.current.y}
+                data-testid="step-toolbar"
+                vizNode={groupVizNode}
+                isCollapsed={element.isCollapsed()}
+                onCollapseToggle={onCollapseToggle}
+              />
             </Layer>
           )}
         </g>

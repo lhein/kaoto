@@ -288,6 +288,84 @@ describe('withNodeContextMenu', () => {
     }
   });
 
+  describe('with the focus in a submenu', () => {
+    const subMenuActions = () =>
+      vi.fn().mockReturnValue([
+        <CanvasContextSubMenuItem key="sub" label="Sub" data-testid="sub">
+          {itemA}
+        </CanvasContextSubMenuItem>,
+      ]);
+
+    /** Opens the menu from the focused target and moves the focus into the submenu with ArrowRight */
+    const openSubMenuWithKeyboard = async (target: HTMLElement) => {
+      act(() => {
+        target.focus();
+      });
+      fireEvent.contextMenu(target, { clientX: 10, clientY: 20 });
+      await settle();
+      const entry = within(screen.getByRole('menu', { name: 'Step actions' })).getByRole('menuitem', { name: 'Sub' });
+      fireEvent.keyDown(entry, { key: 'ArrowRight' });
+      expect(within(screen.getByRole('menu', { name: 'Sub' })).getByRole('menuitem')).toHaveFocus();
+      return entry;
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('focuses the submenu entry again when the pointer leaves the entry and its submenu', async () => {
+      const { target } = renderWithMenu(subMenuActions());
+      const entry = await openSubMenuWithKeyboard(target);
+      const subMenuItem = within(screen.getByRole('menu', { name: 'Sub' })).getByRole('menuitem');
+
+      // The pointer moves from the submenu onto the step; user-event would move it without a related target
+      fireEvent.mouseLeave(subMenuItem, { relatedTarget: target });
+
+      expect(screen.queryByRole('menu', { name: 'Sub' })).not.toBeInTheDocument();
+      expect(screen.getByRole('menu', { name: 'Step actions' })).toBeInTheDocument();
+      expect(entry).toHaveFocus();
+    });
+
+    it('leaves the focus on a control outside the menu that a click focused', async () => {
+      const { target } = renderWithMenu(subMenuActions());
+      await openSubMenuWithKeyboard(target);
+      const outside = document.createElement('button');
+      document.body.appendChild(outside);
+
+      try {
+        /* The browser focuses the clicked control after the mousedown listeners, before the deferred close runs */
+        fireEvent.mouseDown(outside);
+        outside.focus();
+        await act(async () => {
+          await vi.runAllTimersAsync();
+        });
+
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+        expect(target).toHaveAttribute('data-menu-open', 'false');
+        expect(outside).toHaveFocus();
+      } finally {
+        outside.remove();
+      }
+    });
+
+    it('returns the focus to where it was on a click outside that focuses nothing', async () => {
+      const { target } = renderWithMenu(subMenuActions());
+      await openSubMenuWithKeyboard(target);
+
+      fireEvent.mouseDown(document.body);
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(target).toHaveFocus();
+    });
+  });
+
   it('closes on Escape', async () => {
     const actions = vi.fn().mockReturnValue([itemA]);
     const { target } = renderWithMenu(actions);

@@ -1,6 +1,6 @@
 import { ChevronRight } from '@carbon/icons-react';
 import { Menu, MenuContent, MenuList, Popper } from '@patternfly/react-core';
-import { FunctionComponent, KeyboardEvent, ReactNode, useContext, useId, useRef, useState } from 'react';
+import { FunctionComponent, KeyboardEvent, ReactNode, useCallback, useContext, useId, useRef, useState } from 'react';
 
 import { ContextMenuControlsContext, ENABLED_ITEM, SUBMENU_ATTRIBUTE } from './withNodeContextMenu';
 
@@ -38,6 +38,14 @@ export const CanvasContextSubMenuItem: FunctionComponent<CanvasContextSubMenuIte
   const triggerRef = useRef<HTMLButtonElement>(null);
   const id = useId();
   const [open, setOpen] = useState<false | 'hover' | 'focus'>(false);
+  const subMenuList = useRef<HTMLUListElement | null>(null);
+  const subMenuListRef = useCallback(
+    (list: HTMLUListElement | null) => {
+      subMenuList.current = list;
+      if (open === 'focus') focusFirstItem(list);
+    },
+    [open],
+  );
 
   const onTriggerKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'ArrowRight' || event.key === 'Enter' || event.key === ' ') {
@@ -73,7 +81,10 @@ export const CanvasContextSubMenuItem: FunctionComponent<CanvasContextSubMenuIte
       }}
       onMouseLeave={(event) => {
         // Like PatternFly's `ContextSubMenuItem`, the submenu stays open when the pointer leaves the window
-        if (event.relatedTarget instanceof Node) setOpen(false);
+        if (!(event.relatedTarget instanceof Node)) return;
+        // Removing the submenu would leave the focus on the page body, where the keys no longer reach the menu
+        if (subMenuList.current?.contains(document.activeElement)) triggerRef.current?.focus();
+        setOpen(false);
       }}
     >
       <button
@@ -107,11 +118,7 @@ export const CanvasContextSubMenuItem: FunctionComponent<CanvasContextSubMenuIte
           popper={
             <Menu onSelect={contextMenu.close} onKeyDown={onSubMenuKeyDown}>
               <MenuContent>
-                <MenuList
-                  aria-labelledby={id}
-                  {...{ [SUBMENU_ATTRIBUTE]: '' }}
-                  ref={open === 'focus' ? focusFirstItem : undefined}
-                >
+                <MenuList aria-labelledby={id} {...{ [SUBMENU_ATTRIBUTE]: '' }} ref={subMenuListRef}>
                   {children}
                 </MenuList>
               </MenuContent>

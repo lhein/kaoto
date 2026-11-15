@@ -124,7 +124,8 @@ const NodeContextMenuPopup: FunctionComponent<NodeContextMenuPopupProps> = ({
    * action, always without the event. Escape in a submenu closes only that submenu, but PatternFly asks from a capture
    * listener on the document, before the key reaches the submenu, and closing right away would remove the submenu
    * before it sees the key. So with the focus in a submenu, the menu decides once the event has been dispatched: it
-   * closes unless the submenu reported that it handled Escape.
+   * closes unless the submenu reported that it handled Escape. By then, a click outside has focused the control it
+   * hit, if any, and the menu closes without taking the focus back.
    */
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onContextMenuRequestClose = useCallback(() => {
@@ -135,9 +136,16 @@ const NodeContextMenuPopup: FunctionComponent<NodeContextMenuPopupProps> = ({
     escapedInSubmenu.current = false;
     clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => {
-      if (!escapedInSubmenu.current) close();
+      if (escapedInSubmenu.current) return;
+      // A click outside can have focused the control it hit in the meantime; the focus stays there
+      const focused = document.activeElement;
+      if (focused && focused !== document.body && !attached.current?.popper.contains(focused)) {
+        onRequestClose(id);
+        return;
+      }
+      close();
     });
-  }, [close]);
+  }, [close, id, onRequestClose]);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {

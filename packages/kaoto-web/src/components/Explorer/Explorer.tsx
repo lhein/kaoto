@@ -14,42 +14,21 @@ import {
   TestTool,
 } from '@carbon/icons-react';
 import { FeatureFlags, IconButton, Link, Search, SkeletonText, TreeNode, TreeView } from '@carbon/react';
-import {
-  ChangeEvent,
-  ComponentProps,
-  FunctionComponent,
-  KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { ComponentProps, FunctionComponent, KeyboardEvent as ReactKeyboardEvent, useEffect, useRef } from 'react';
 
-import { useFiles } from '../../hooks/useFiles';
 import { usePanelResizer } from '../../hooks/usePanelResizer';
-import { getFileType, StoredFile } from '../../services/files/stored-file';
+import { StoredFile } from '../../services/files/stored-file';
 import { CreateFileModal } from '../CreateFileModal/CreateFileModal';
 import { DeleteConfirmModal } from '../DeleteConfirmModal/DeleteConfirmModal';
 import { ErrorState } from '../ErrorState/ErrorState';
-import { buildTree, toFolderId, toFolderPath } from './build-tree';
+import { toFolderId, toFolderPath } from './build-tree';
 import { EntryLabel } from './EntryLabel';
 import { ExplorerFile } from './explorer-file';
-import { filterFiles } from './filterFiles';
-import {
-  expandWithParents,
-  insertNewEntry,
-  isFolderId,
-  NEW_ENTRY_ID,
-  NewEntryPlacement,
-  ROOT_TARGET,
-  targetFolderPath,
-} from './model/explorer-tree';
-import { moveExpandedFolders } from './move-expanded-folders';
-import { CreatedEntry, NewEntryField, NewEntryKind } from './NewEntryField';
+import { NEW_ENTRY_ID, NewEntryPlacement, ROOT_TARGET } from './model/explorer-tree';
+import { CreatedEntry, NewEntryField } from './NewEntryField';
 import { RenameField } from './RenameField';
 import { RenameFolderField } from './RenameFolderField';
+import { isOpenable, useExplorer } from './useExplorer';
 
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
@@ -76,11 +55,12 @@ interface RenderOptions {
   finishCreate: (byKeyboard: boolean, created: CreatedEntry | undefined) => void;
 }
 
-interface NewEntry extends NewEntryPlacement {
+interface NewEntry {
+  entryKind: NewEntryPlacement['kind'];
+  /** The folder it is created in, empty for the root */
+  folderPath: string;
   /** Changes with every start, so that a new start mounts a new field */
   key: number;
-  /** The button that started creating, to focus again when creating is cancelled with Escape */
-  opener: HTMLElement;
 }
 
 /** The key labelled "delete" on a Mac keyboard sends Backspace */
@@ -121,8 +101,6 @@ function renderEntryLabel(node: ExplorerFile, opts: RenderOptions): React.ReactN
   );
 }
 
-const OPENABLE_TYPES: ReadonlySet<ExplorerFile['type']> = new Set(['integration', 'integration-test']);
-
 function getFileIcon(type: ExplorerFile['type']) {
   if (type === 'integration') return DocumentConfiguration;
   if (type === 'integration-test') return TestTool;
@@ -137,9 +115,13 @@ function renderNodes(nodes: ExplorerFile[], opts: RenderOptions): React.ReactNod
           key={`${NEW_ENTRY_ID}${opts.newEntry.key}`}
           id={NEW_ENTRY_ID}
           label={
-            <NewEntryField kind={opts.newEntry.kind} folderPath={opts.newEntry.folderPath} onDone={opts.finishCreate} />
+            <NewEntryField
+              kind={opts.newEntry.entryKind}
+              folderPath={opts.newEntry.folderPath}
+              onDone={opts.finishCreate}
+            />
           }
-          renderIcon={opts.newEntry.kind === 'folder' ? Folder : Document}
+          renderIcon={opts.newEntry.entryKind === 'folder' ? Folder : Document}
           data-testid="explorer-new-entry"
         />
       );
@@ -172,7 +154,7 @@ function renderNodes(nodes: ExplorerFile[], opts: RenderOptions): React.ReactNod
         onKeyDown={handleEntryKeys(node, opts)}
         aria-keyshortcuts="F2 Delete Backspace"
         onSelect={() => {
-          if (OPENABLE_TYPES.has(node.type)) opts.openIntegration(node.id);
+          if (isOpenable(node.type)) opts.openIntegration(node.id);
         }}
       />
     );
@@ -180,143 +162,40 @@ function renderNodes(nodes: ExplorerFile[], opts: RenderOptions): React.ReactNod
 }
 
 export const Explorer: FunctionComponent = () => {
-  const { fileId: selectedId } = useParams();
-  const navigate = useNavigate();
-  const [searchText, setSearchText] = useState('');
-  const query = searchText.toLowerCase();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  /** The entry the delete confirmation asks about, with its path taken when it was asked for */
-  const [toDelete, setToDelete] = useState<{ node: ExplorerFile; path: string }>();
-  const [renamingId, setRenamingId] = useState<string>();
+  const explorer = useExplorer();
+  const { mode, focusRequest, selectedId, loading, error } = explorer;
   const treeRef = useRef<HTMLDivElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
-  /** The button that opened the Create New File modal */
-  const createOpenerRef = useRef<HTMLElement | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const { width, handleResizerMouseDown } = usePanelResizer({
     initialWidth: DEFAULT_WIDTH,
     minWidth: MIN_WIDTH,
     maxWidth: MAX_WIDTH,
   });
 
-  const handleSearch = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    setSearchText(e.target.value);
-  }, []);
-
-  const { files, folders, loading, error, reload, deleteFile, deleteFolder } = useFiles();
-  const tree = useMemo(() => buildTree(files, folders), [files, folders]);
-  const filtered = useMemo(() => filterFiles(tree, query), [tree, query]);
-
-  const [newEntry, setNewEntry] = useState<NewEntry>();
-  const nodes = useMemo(() => (newEntry ? insertNewEntry(filtered, newEntry) : filtered), [filtered, newEntry]);
-  /**
-   * The tree item that had the focus last, as clicking a toolbar button takes the focus away from it. Forgotten whenever
-   * another file opens, also from outside the tree and when coming back to the file it was remembered with: the open
-   * file decides the folder then.
+  /*
+   * A field or dialog that closes unmounts, so the focus goes back by hand: to the tree node, or to the first node or
+   * the toolbar when that node is gone; to the element that opened it, or to the toolbar when that one is gone, as the
+   * empty-state link is once a file exists.
    */
-  const lastFocusedNodeRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    lastFocusedNodeRef.current = undefined;
-  }, [selectedId]);
-
-  const handleToggle = useCallback(
-    (folderId: string) =>
-      // With enableTreeviewControllable, Carbon calls onToggle(isExpanded) rather than (event, node).
-      ((newIsExpanded: boolean) => {
-        setExpandedFolders((prev) => ({ ...prev, [folderId]: newIsExpanded }));
-      }) as ComponentProps<typeof TreeNode>['onToggle'],
-    [],
-  );
-
-  const openIntegration = useCallback(
-    (fileId: string) => {
-      void navigate(`/workspace/file/${fileId}`);
-    },
-    [navigate],
-  );
-
-  /**
-   * The node to focus once the delete modal or the rename field is closed. They unmount on close, so focus goes back by
-   * hand: to the node, or to the tree when the node is deleted. An object, so that every close focuses again.
-   */
-  const [focusNode, setFocusNode] = useState<{ nodeId: string }>();
-  useEffect(() => {
-    if (!focusNode) return;
-    const items = [...(treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
-    const target = items.find((item) => item.id === focusNode.nodeId) ?? items[0] ?? addButtonRef.current;
-    target?.focus();
-  }, [focusNode]);
-
-  const renaming = renamingId ? files.find((file) => file.id === renamingId) : undefined;
-  const renamingFolder = renamingId && isFolderId(renamingId) ? toFolderPath(renamingId) : undefined;
-  /** The folder ids follow the paths, so a renamed folder and its subfolders stay expanded under their new ids */
-  const moveExpanded = useCallback((fromPath: string, toPath: string) => {
-    setExpandedFolders((previous) => moveExpandedFolders(previous, fromPath, toPath));
-  }, []);
-  const finishRename = (byKeyboard: boolean, renamedNodeId?: string) => {
-    const nodeId = renamedNodeId ?? renamingId;
-    if (byKeyboard && nodeId) setFocusNode({ nodeId });
-    setRenamingId(undefined);
-  };
-
-  const openCreateModal = (event: React.MouseEvent<HTMLElement>) => {
-    createOpenerRef.current = event.currentTarget;
-    setIsCreateOpen(true);
-  };
-
-  const startCreate = (kind: NewEntryKind, event: React.MouseEvent<HTMLElement>) => {
-    const opener = event.currentTarget;
-    const folderPath = targetFolderPath({ lastFocused: lastFocusedNodeRef.current, selectedId, files, folders });
-    // The search would hide the new entry
-    setSearchText('');
-    setExpandedFolders((previous) => expandWithParents(previous, folderPath));
-    setNewEntry((previous) => ({ kind, folderPath, key: (previous?.key ?? 0) + 1, opener }));
-  };
-
-  const finishCreate = (byKeyboard: boolean, created: CreatedEntry | undefined) => {
-    setNewEntry(undefined);
-    if (!created) {
-      if (byKeyboard) newEntry?.opener.focus();
+    if (!focusRequest) return;
+    if (focusRequest.target === 'opener') {
+      (focusRequest.opener.isConnected ? focusRequest.opener : addButtonRef.current)?.focus();
       return;
     }
-    if (byKeyboard) setFocusNode({ nodeId: created.id });
-    if (!isFolderId(created.id) && OPENABLE_TYPES.has(getFileType(created.path))) openIntegration(created.id);
-  };
+    const items = [...(treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
+    const target = items.find((item) => item.id === focusRequest.nodeId) ?? items[0] ?? addButtonRef.current;
+    target?.focus();
+  }, [focusRequest]);
 
-  /**
-   * The element to focus once the Create New File modal is closed. The modal unmounts on close, so focus goes back by
-   * hand: to the button that opened it, or to the toolbar button when that one is gone, as the empty-state button is
-   * once a file exists. An object, so that every close focuses again.
-   */
-  const [focusAfterCreate, setFocusAfterCreate] = useState<{ opener: HTMLElement | null }>();
-  useEffect(() => {
-    if (!focusAfterCreate) return;
-    const { opener } = focusAfterCreate;
-    (opener?.isConnected ? opener : addButtonRef.current)?.focus();
-  }, [focusAfterCreate]);
+  // With enableTreeviewControllable, Carbon calls onToggle(isExpanded) rather than (event, node).
+  const handleToggle = (folderId: string) =>
+    ((newIsExpanded: boolean) => {
+      explorer.toggleFolder(folderId, newIsExpanded);
+    }) as ComponentProps<typeof TreeNode>['onToggle'];
 
-  /**
-   * Asks to delete a node. The confirmation names its full path, so that the user can tell entries of the same name
-   * in different folders apart. The path is taken now: a file of the tree is one of the files, while during the
-   * deletion it may already be gone from them.
-   */
-  const requestDelete = (node: ExplorerFile) => {
-    const path = node.children ? toFolderPath(node.id) : files.find((file) => file.id === node.id)!.path;
-    setToDelete({ node, path });
-  };
-
-  const deleteNode = async (node: ExplorerFile) => {
-    const openPath = files.find((file) => file.id === selectedId)?.path;
-    let deletesOpenFile;
-    if (node.children) {
-      const folderPath = toFolderPath(node.id);
-      await deleteFolder(folderPath);
-      deletesOpenFile = !!openPath?.startsWith(`${folderPath}/`);
-    } else {
-      await deleteFile(node.id);
-      deletesOpenFile = node.id === selectedId;
-    }
-    if (deletesOpenFile) void navigate('/workspace');
+  const openCreateDialog = (event: React.MouseEvent<HTMLElement>) => {
+    explorer.openCreateDialog(event.currentTarget);
   };
 
   return (
@@ -337,7 +216,7 @@ export const Explorer: FunctionComponent = () => {
             align="bottom-start"
             data-testid="explorer-add"
             ref={addButtonRef}
-            onClick={openCreateModal}
+            onClick={openCreateDialog}
           >
             <Add />
           </IconButton>
@@ -348,7 +227,7 @@ export const Explorer: FunctionComponent = () => {
             align="bottom"
             data-testid="explorer-new-file"
             onClick={(event: React.MouseEvent<HTMLElement>) => {
-              startCreate('file', event);
+              explorer.startCreate('file', event.currentTarget);
             }}
           >
             <DocumentAdd />
@@ -360,7 +239,7 @@ export const Explorer: FunctionComponent = () => {
             align="bottom"
             data-testid="explorer-new-folder"
             onClick={(event: React.MouseEvent<HTMLElement>) => {
-              startCreate('folder', event);
+              explorer.startCreate('folder', event.currentTarget);
             }}
           >
             <FolderAdd />
@@ -374,8 +253,10 @@ export const Explorer: FunctionComponent = () => {
           size="sm"
           labelText="Search files"
           placeholder="Search files…"
-          value={searchText}
-          onChange={handleSearch}
+          value={explorer.searchText}
+          onChange={(event) => {
+            explorer.setSearchText(event.target.value);
+          }}
           data-testid="explorer-search"
         />
       </div>
@@ -396,12 +277,12 @@ export const Explorer: FunctionComponent = () => {
         data-testid="explorer-tree"
         onMouseDown={(event) => {
           if (!(event.target as HTMLElement).closest('[role="treeitem"]')) {
-            lastFocusedNodeRef.current = ROOT_TARGET;
+            explorer.setLastFocusedNode(ROOT_TARGET);
           }
         }}
         onFocus={(event) => {
           const item = (event.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
-          if (item?.id && item.id !== NEW_ENTRY_ID) lastFocusedNodeRef.current = item.id;
+          if (item?.id && item.id !== NEW_ENTRY_ID) explorer.setLastFocusedNode(item.id);
         }}
       >
         {loading && (
@@ -413,66 +294,56 @@ export const Explorer: FunctionComponent = () => {
           <ErrorState
             title="Could not load the files"
             message={`Kaoto keeps the files in the browser storage, and the browser storage may be blocked, for example in a private window. (${error.message})`}
-            onRetry={reload}
+            onRetry={explorer.reload}
           />
         )}
-        {!loading && !error && tree.length === 0 && !newEntry && (
+        {!loading && !error && explorer.isEmpty && !explorer.newEntry && (
           <div className="cs--explorer__empty" data-testid="explorer-empty">
             {/* A link to the eye, but it opens the Create new file modal rather than going anywhere */}
-            <Link as="button" type="button" className="cs--explorer__create-first" onClick={openCreateModal}>
+            <Link as="button" type="button" className="cs--explorer__create-first" onClick={openCreateDialog}>
               Create your first file…
             </Link>
           </div>
         )}
-        {!loading && !error && (tree.length > 0 || newEntry) && (
+        {!loading && !error && (!explorer.isEmpty || explorer.newEntry) && (
           /* enableTreeviewControllable makes `selected` and `active` fully controlled —
              without it, Carbon TreeView only uses `selected` as an initial value and
              won't react to URL changes (e.g. browser back/forward). */
           <FeatureFlags enableTreeviewControllable>
             <TreeView label="Project files" hideLabel selected={selectedId ? [selectedId] : []} active={selectedId}>
-              {renderNodes(nodes, {
-                query,
+              {renderNodes(explorer.nodes, {
+                query: explorer.query,
                 selectedId,
-                expandedFolders,
+                expandedFolders: explorer.expandedFolders,
                 handleToggle,
-                openIntegration,
-                requestDelete,
-                requestRename: setRenamingId,
-                renaming,
-                renamingFolder,
-                finishRename,
-                moveExpanded,
-                newEntry,
-                finishCreate,
+                openIntegration: explorer.openFile,
+                requestDelete: explorer.requestDelete,
+                requestRename: explorer.startRename,
+                renaming: explorer.renaming,
+                renamingFolder: explorer.renamingFolder,
+                finishRename: explorer.finishRename,
+                moveExpanded: explorer.folderRenamed,
+                newEntry: explorer.newEntry,
+                finishCreate: explorer.finishCreate,
               })}
             </TreeView>
           </FeatureFlags>
         )}
       </div>
-      {isCreateOpen && (
-        <CreateFileModal
-          onClose={() => {
-            setIsCreateOpen(false);
-            setFocusAfterCreate({ opener: createOpenerRef.current });
-          }}
-        />
-      )}
-      {toDelete && (
+      {mode.kind === 'createDialog' && <CreateFileModal onClose={explorer.closeCreateDialog} />}
+      {mode.kind === 'deleting' && (
         <DeleteConfirmModal
-          heading={toDelete.node.children ? 'Delete folder?' : 'Delete file?'}
-          onDelete={() => deleteNode(toDelete.node)}
-          onClose={() => {
-            setToDelete(undefined);
-            setFocusNode({ nodeId: toDelete.node.id });
-          }}
+          heading={mode.node.children ? 'Delete folder?' : 'Delete file?'}
+          onDelete={() => explorer.deleteNode(mode.node)}
+          onClose={explorer.closeDelete}
         >
-          {toDelete.node.children ? (
+          {mode.node.children ? (
             <>
-              Are you sure you want to delete the folder <strong>{toDelete.path}</strong> and all its contents?
+              Are you sure you want to delete the folder <strong>{mode.path}</strong> and all its contents?
             </>
           ) : (
             <>
-              Are you sure you want to delete <strong>{toDelete.path}</strong>?
+              Are you sure you want to delete <strong>{mode.path}</strong>?
             </>
           )}
         </DeleteConfirmModal>

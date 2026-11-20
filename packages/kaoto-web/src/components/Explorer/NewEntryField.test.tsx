@@ -4,7 +4,7 @@ import { userEvent } from '@testing-library/user-event';
 import { filesStore } from '../../services/files/files.store';
 import { storeTestFiles, withFiles } from '../../test/files';
 import { resetTestIndexedDB } from '../../test/indexed-db';
-import { toFolderId } from './build-tree';
+import { toFolderId } from './model/build-tree';
 import { NewEntryField, NewEntryKind } from './NewEntryField';
 
 /** Serves the catalog index, the starter templates manifest and the Camel route template */

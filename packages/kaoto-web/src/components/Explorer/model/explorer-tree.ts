@@ -1,6 +1,6 @@
 import { StoredFile } from '../../../services/files/stored-file';
-import { toFolderId, toFolderPath } from '../build-tree';
-import { ExplorerFile } from '../explorer-file';
+import { toFolderId, toFolderPath } from './build-tree';
+import { ExplorerFile } from './explorer-file';
 
 /**
  * Operations on the Explorer tree that need no React: where a new entry goes, which node stands for it, and which

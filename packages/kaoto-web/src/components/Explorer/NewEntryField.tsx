@@ -5,7 +5,7 @@ import { useFiles } from '../../hooks/useFiles';
 import { buildChildPath } from '../../services/files/file-path';
 import { fetchStarterTemplate, resolveStarterTemplate } from '../../services/templates/starter-templates';
 import { FILE_KINDS } from '../CreateFileModal/file-kinds';
-import { toFolderId } from './build-tree';
+import { toFolderId } from './model/build-tree';
 import { NameField, NameResult } from './NameField';
 import { TAKEN, takenPaths } from './taken-paths';
 

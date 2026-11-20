@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { storeTestFiles, TEST_FILES, withFiles } from '../../test/files';
 import { resetTestIndexedDB } from '../../test/indexed-db';
-import { toFolderId } from './build-tree';
 import { createExplorerController, withExplorer } from './explorer-controller.mock';
-import { ExplorerFile } from './explorer-file';
 import { ExplorerController } from './ExplorerContext';
 import { ExplorerNode } from './ExplorerNode';
+import { toFolderId } from './model/build-tree';
+import { ExplorerFile } from './model/explorer-file';
 import { NEW_ENTRY_ID } from './model/explorer-tree';
 
 const routeFile: ExplorerFile = { id: 'main-flow', name: 'main-flow.camel.yaml', type: 'integration' };

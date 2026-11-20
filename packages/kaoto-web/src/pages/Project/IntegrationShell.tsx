@@ -8,8 +8,8 @@ import { FunctionComponent, useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router';
 
 import { CATALOG_URL } from '../../catalog-url';
-import { buildTree } from '../../components/Explorer/build-tree';
-import { findPath } from '../../components/Explorer/filterFiles';
+import { buildTree } from '../../components/Explorer/model/build-tree';
+import { findPath } from '../../components/Explorer/model/filterFiles';
 import { LoadingState } from '../../components/LoadingState/LoadingState';
 import { useIntegrationHeader } from '../../context/IntegrationHeaderContext';
 import { useFiles } from '../../hooks/useFiles';

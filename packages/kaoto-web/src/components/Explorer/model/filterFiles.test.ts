@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { TEST_FILES } from '../../test/files';
+import { TEST_FILES } from '../../../test/files';
 import { buildTree, toFolderId } from './build-tree';
 import { filterFiles } from './filterFiles';
 

@@ -1,6 +1,6 @@
 import { StoredFile } from '../../../services/files/stored-file';
-import { toFolderId } from '../build-tree';
-import { ExplorerFile } from '../explorer-file';
+import { toFolderId } from './build-tree';
+import { ExplorerFile } from './explorer-file';
 import {
   expandWithParents,
   getNodeKey,

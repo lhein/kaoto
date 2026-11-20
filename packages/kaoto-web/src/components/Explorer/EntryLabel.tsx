@@ -2,7 +2,7 @@ import { Edit, TrashCan } from '@carbon/icons-react';
 import { FunctionComponent, ReactNode } from 'react';
 
 import { EntryActionButton } from './EntryActionButton';
-import { ExplorerFile } from './explorer-file';
+import { ExplorerFile } from './model/explorer-file';
 
 interface EntryLabelProps {
   node: ExplorerFile;

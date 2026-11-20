@@ -2,10 +2,10 @@ import { Document, DocumentConfiguration, Folder, FolderOpen, TestTool } from '@
 import { TreeNode } from '@carbon/react';
 import { ComponentProps, FunctionComponent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 
-import { toFolderId, toFolderPath } from './build-tree';
 import { EntryLabel } from './EntryLabel';
-import { ExplorerFile } from './explorer-file';
 import { useExplorerContext } from './ExplorerContext';
+import { toFolderId, toFolderPath } from './model/build-tree';
+import { ExplorerFile } from './model/explorer-file';
 import { getNodeKey, NEW_ENTRY_ID } from './model/explorer-tree';
 import { NewEntryField } from './NewEntryField';
 import { RenameField } from './RenameField';

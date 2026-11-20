@@ -1,8 +1,8 @@
 import { createStore } from 'zustand/vanilla';
 
-import { ExplorerFile } from '../explorer-file';
-import { moveExpandedFolders } from '../move-expanded-folders';
+import { ExplorerFile } from './explorer-file';
 import { expandWithParents, NewEntryPlacement } from './explorer-tree';
+import { moveExpandedFolders } from './move-expanded-folders';
 
 /**
  * What the Explorer is doing right now. The modes exclude each other: starting one ends the one before, so there is

@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { filesStore } from '../../services/files/files.store';
 import { TEST_FILES } from '../../test/files';
 import { resetTestIndexedDB } from '../../test/indexed-db';
-import { toFolderId } from './build-tree';
 import {
   LocationDisplay,
   renderComponent,
@@ -14,6 +13,7 @@ import {
   storedPaths,
   storeExplorerTestFiles,
 } from './explorer-test-utils';
+import { toFolderId } from './model/build-tree';
 
 describe('Explorer: creating inline', () => {
   beforeEach(storeExplorerTestFiles);

@@ -1,5 +1,5 @@
-import { toFolderId } from '../build-tree';
-import { ExplorerFile } from '../explorer-file';
+import { toFolderId } from './build-tree';
+import { ExplorerFile } from './explorer-file';
 import { createExplorerStore } from './explorer-store';
 
 const opener = document.createElement('button');

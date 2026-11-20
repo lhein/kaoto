@@ -1,4 +1,4 @@
-import { getFileType, StoredFile } from '../../services/files/stored-file';
+import { getFileType, StoredFile } from '../../../services/files/stored-file';
 import { ExplorerFile } from './explorer-file';
 
 const FOLDER_ID_PREFIX = 'folder:';

@@ -1,4 +1,4 @@
-import { FileType } from '../../services/files/stored-file';
+import { FileType } from '../../../services/files/stored-file';
 
 /** A node of the Explorer tree: a stored file or a folder derived from the file paths */
 export interface ExplorerFile {

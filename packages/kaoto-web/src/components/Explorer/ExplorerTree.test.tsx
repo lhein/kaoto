@@ -3,11 +3,11 @@ import { userEvent } from '@testing-library/user-event';
 import { createRef } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { toFolderId } from './build-tree';
 import { createExplorerController, withExplorer } from './explorer-controller.mock';
-import { ExplorerFile } from './explorer-file';
 import { ExplorerController } from './ExplorerContext';
 import { ExplorerTree } from './ExplorerTree';
+import { toFolderId } from './model/build-tree';
+import { ExplorerFile } from './model/explorer-file';
 import { ROOT_TARGET } from './model/explorer-tree';
 
 const nodes: ExplorerFile[] = [

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EntryLabel } from './EntryLabel';
-import { ExplorerFile } from './explorer-file';
+import { ExplorerFile } from './model/explorer-file';
 
 const FILE: ExplorerFile = { id: 'main-flow', name: 'Main-Flow.camel.yaml', type: 'integration' };
 const FOLDER: ExplorerFile = { id: 'folder:integrations', name: 'integrations', type: 'folder', children: [] };

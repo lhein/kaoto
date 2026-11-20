@@ -4,11 +4,11 @@ import { useStore } from 'zustand';
 
 import { useFiles } from '../../hooks/useFiles';
 import { getFileType } from '../../services/files/stored-file';
-import { buildTree, toFolderId, toFolderPath } from './build-tree';
-import { ExplorerFile } from './explorer-file';
-import { filterFiles } from './filterFiles';
+import { buildTree, toFolderId, toFolderPath } from './model/build-tree';
+import { ExplorerFile } from './model/explorer-file';
 import { createExplorerStore } from './model/explorer-store';
 import { insertNewEntry, isFolderId, NewEntryPlacement, targetFolderPath } from './model/explorer-tree';
+import { filterFiles } from './model/filterFiles';
 import { CreatedEntry } from './NewEntryField';
 
 /** The files that open in an editor when they are selected or created */

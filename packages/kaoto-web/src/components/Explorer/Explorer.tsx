@@ -37,6 +37,15 @@ import { buildTree, toFolderId, toFolderPath } from './build-tree';
 import { EntryLabel } from './EntryLabel';
 import { ExplorerFile } from './explorer-file';
 import { filterFiles } from './filterFiles';
+import {
+  expandWithParents,
+  insertNewEntry,
+  isFolderId,
+  NEW_ENTRY_ID,
+  NewEntryPlacement,
+  ROOT_TARGET,
+  targetFolderPath,
+} from './model/explorer-tree';
 import { moveExpandedFolders } from './move-expanded-folders';
 import { CreatedEntry, NewEntryField, NewEntryKind } from './NewEntryField';
 import { RenameField } from './RenameField';
@@ -67,49 +76,12 @@ interface RenderOptions {
   finishCreate: (byKeyboard: boolean, created: CreatedEntry | undefined) => void;
 }
 
-interface NewEntry {
-  kind: NewEntryKind;
-  /** The folder it is created in, empty for the root */
-  folderPath: string;
+interface NewEntry extends NewEntryPlacement {
   /** Changes with every start, so that a new start mounts a new field */
   key: number;
   /** The button that started creating, to focus again when creating is cancelled with Escape */
   opener: HTMLElement;
 }
-
-/** The id of the tree node that holds the name field of a new file or folder */
-const NEW_ENTRY_ID = 'new-entry:';
-
-/** Stands for the root in the last focused tree item, after a click on the free space of the tree */
-const ROOT_TARGET = 'root:';
-
-/** Puts the node of the new entry into its folder: a folder first among the folders, a file first among the files */
-function insertNewEntry(nodes: ExplorerFile[], entry: NewEntry): ExplorerFile[] {
-  const node: ExplorerFile = { id: NEW_ENTRY_ID, name: '', type: entry.kind === 'folder' ? 'folder' : 'document' };
-  const insert = (siblings: ExplorerFile[]) => {
-    const index = entry.kind === 'folder' ? 0 : siblings.findIndex((sibling) => !sibling.children);
-    const at = index === -1 ? siblings.length : index;
-    return [...siblings.slice(0, at), node, ...siblings.slice(at)];
-  };
-  if (!entry.folderPath) return insert(nodes);
-
-  const folderId = toFolderId(entry.folderPath);
-  return nodes.map((candidate) => {
-    if (!candidate.children) return candidate;
-    if (candidate.id === folderId) return { ...candidate, children: insert(candidate.children) };
-    if (entry.folderPath.startsWith(`${toFolderPath(candidate.id)}/`)) {
-      return { ...candidate, children: insertNewEntry(candidate.children, entry) };
-    }
-    return candidate;
-  });
-}
-
-/** Whether the tree node id is the id of a folder */
-const isFolderId = (id: string): boolean => toFolderId(toFolderPath(id)) === id;
-
-/** The folder paths from the outermost folder down to the folder itself */
-const folderAndParents = (folderPath: string): string[] =>
-  folderPath ? folderPath.split('/').map((_, index, segments) => segments.slice(0, index + 1).join('/')) : [];
 
 /** The key labelled "delete" on a Mac keyboard sends Backspace */
 const DELETE_KEYS: ReadonlySet<string> = new Set(['Delete', 'Backspace']);
@@ -292,29 +264,12 @@ export const Explorer: FunctionComponent = () => {
     setIsCreateOpen(true);
   };
 
-  /** The folder a new entry goes into: the last focused tree item's, else the open file's, else the root */
-  const targetFolderPath = (): string => {
-    const folderOf = (path: string) => path.slice(0, Math.max(path.lastIndexOf('/'), 0));
-    const lastFocused = lastFocusedNodeRef.current;
-    if (lastFocused === ROOT_TARGET) return '';
-    if (lastFocused && isFolderId(lastFocused)) {
-      const folderPath = toFolderPath(lastFocused);
-      // Every folder is stored, so a folder that was renamed or deleted since is gone from the list
-      if (folders.includes(folderPath)) return folderPath;
-    }
-    const file = files.find(({ id }) => id === lastFocused) ?? files.find(({ id }) => id === selectedId);
-    return file ? folderOf(file.path) : '';
-  };
-
   const startCreate = (kind: NewEntryKind, event: React.MouseEvent<HTMLElement>) => {
     const opener = event.currentTarget;
-    const folderPath = targetFolderPath();
+    const folderPath = targetFolderPath({ lastFocused: lastFocusedNodeRef.current, selectedId, files, folders });
     // The search would hide the new entry
     setSearchText('');
-    setExpandedFolders((previous) => ({
-      ...previous,
-      ...Object.fromEntries(folderAndParents(folderPath).map((path) => [toFolderId(path), true])),
-    }));
+    setExpandedFolders((previous) => expandWithParents(previous, folderPath));
     setNewEntry((previous) => ({ kind, folderPath, key: (previous?.key ?? 0) + 1, opener }));
   };
 

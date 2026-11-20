@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { useStore } from 'zustand';
 
 import { useFiles } from '../../hooks/useFiles';
 import { getFileType } from '../../services/files/stored-file';
 import { buildTree, toFolderId } from './model/build-tree';
 import { ExplorerFile } from './model/explorer-file';
 import { createExplorerStore } from './model/explorer-store';
-import { insertNewEntry, NewEntryPlacement, targetFolderPath } from './model/explorer-tree';
-import { filterFiles } from './model/filterFiles';
+import { findNode, NewEntryPlacement, targetFolderPath } from './model/explorer-tree';
 import { CreatedEntry } from './NewEntryField';
 
 /** The files that open in an editor when they are selected or created */
@@ -28,8 +26,10 @@ export type FocusRequest =
 
 /**
  * The controller of the Explorer: it owns the store with the state of the panel, reads the files and the open file,
- * and holds what happens beyond the state when the user creates, renames or deletes an entry. The Explorer component
- * renders what this hook returns.
+ * and holds what happens beyond the state when the user creates, renames or deletes an entry.
+ *
+ * It does not read the state of the store itself: the components subscribe to the part they show, so a change in the
+ * store renders only them. What it returns changes with the files, the open file and a focus request.
  */
 export const useExplorer = () => {
   const { fileId: selectedId } = useParams();
@@ -37,26 +37,13 @@ export const useExplorer = () => {
   const { files, folders, loading, error, reload, deleteFile, deleteFolder } = useFiles();
 
   const [store] = useState(createExplorerStore);
-  const searchText = useStore(store, (state) => state.searchText);
-  const expandedFolders = useStore(store, (state) => state.expandedFolders);
-  const mode = useStore(store, (state) => state.mode);
   /*
    * React state, not store state: the files are React state as well, and a request has to be rendered together with
    * the files it refers to. The store renders on its own, before a renamed or new node is in the tree.
    */
   const [focusRequest, setFocusRequest] = useState<FocusRequest>();
-  /* The actions never change, so they can be read once */
-  const actions = store.getState();
 
-  const query = searchText.toLowerCase();
   const tree = useMemo(() => buildTree(files, folders), [files, folders]);
-  const filtered = useMemo(() => filterFiles(tree, query), [tree, query]);
-  const newEntry = mode.kind === 'creating' ? mode : undefined;
-  const nodes = useMemo(
-    () =>
-      newEntry ? insertNewEntry(filtered, { kind: newEntry.entryKind, folderPath: newEntry.folderPath }) : filtered,
-    [filtered, newEntry],
-  );
 
   /*
    * The last focused tree item is forgotten whenever another file opens, also from outside the tree and when coming
@@ -73,119 +60,117 @@ export const useExplorer = () => {
     [navigate],
   );
 
-  /** Starts creating in the last focused tree item's folder, else the open file's, else the root */
-  const startCreate = (kind: NewEntryPlacement['kind'], opener: HTMLElement) => {
-    const folderPath = targetFolderPath({ lastFocused: store.getState().lastFocusedNodeId, selectedId, tree });
-    actions.startCreate({ kind, folderPath }, opener);
-  };
+  /** What a row of the tree does. The functions keep their identity, so that a row only renders for its own state. */
+  const rowActions = useMemo(() => {
+    const actions = store.getState();
+    return {
+      toggleFolder: actions.toggleFolder,
+      startRename: actions.startRename,
+      openFile,
 
-  /** Ends creating: the new node, or the button that started it, gets the focus, and a new file with an editor opens */
-  const finishCreate = (byKeyboard: boolean, created: CreatedEntry | undefined) => {
-    const { mode: current } = store.getState();
-    actions.endMode('creating');
-    if (byKeyboard && created) {
-      setFocusRequest({ target: 'node', nodeId: created.id });
-    } else if (byKeyboard && current.kind === 'creating') {
-      setFocusRequest({ target: 'opener', opener: current.opener });
-    }
-    if (created?.kind === 'file' && isOpenable(getFileType(created.path))) openFile(created.id);
-  };
+      /**
+       * Asks to delete a node. The confirmation names its full path, so that the user can tell entries of the same
+       * name in different folders apart.
+       */
+      requestDelete: (node: ExplorerFile) => {
+        actions.requestDelete(node, node.path);
+      },
 
-  /**
-   * Ends renaming; `renamedFolderPath` is the new path of a folder that was renamed. A renamed folder and its
-   * subfolders stay expanded: their node ids follow the paths.
-   */
-  const finishRename = (byKeyboard: boolean, renamedFolderPath?: string) => {
-    const { mode: current } = store.getState();
-    const renamed = current.kind === 'renaming' ? current.node : undefined;
-    if (renamed?.kind === 'folder' && renamedFolderPath !== undefined) {
-      actions.folderRenamed(renamed.path, renamedFolderPath);
-    }
-    actions.endMode('renaming');
-    const nodeId = renamedFolderPath === undefined ? renamed?.id : toFolderId(renamedFolderPath);
-    if (byKeyboard && nodeId !== undefined) setFocusRequest({ target: 'node', nodeId });
-  };
+      /** Ends creating: the new node, or the button that started it, gets the focus, and a new file with an editor opens */
+      finishCreate: (byKeyboard: boolean, created: CreatedEntry | undefined) => {
+        const { mode } = store.getState();
+        actions.endMode('creating');
+        if (byKeyboard && created) {
+          setFocusRequest({ target: 'node', nodeId: created.id });
+        } else if (byKeyboard && mode.kind === 'creating') {
+          setFocusRequest({ target: 'opener', opener: mode.opener });
+        }
+        if (created?.kind === 'file' && isOpenable(getFileType(created.path))) openFile(created.id);
+      },
 
-  /**
-   * A folder was renamed in the storage. While its rename field is still the open one, `finishRename` moves the
-   * expansion state: the store renders at once, and moving it here would unmount the field before it reports that it
-   * is done. When another field has replaced it, the field does not report any more, so the state moves now.
-   */
-  const folderRenamed = (fromPath: string, toPath: string) => {
-    const { mode: current } = store.getState();
-    if (current.kind === 'renaming' && current.node.kind === 'folder' && current.node.path === fromPath) return;
-    actions.folderRenamed(fromPath, toPath);
-  };
+      /**
+       * Ends renaming; `renamedFolderPath` is the new path of a folder that was renamed. A renamed folder and its
+       * subfolders stay expanded: their node ids follow the paths.
+       */
+      finishRename: (byKeyboard: boolean, renamedFolderPath?: string) => {
+        const { mode } = store.getState();
+        const renamed = mode.kind === 'renaming' ? mode.node : undefined;
+        if (renamed?.kind === 'folder' && renamedFolderPath !== undefined) {
+          actions.folderRenamed(renamed.path, renamedFolderPath);
+        }
+        actions.endMode('renaming');
+        const nodeId = renamedFolderPath === undefined ? renamed?.id : toFolderId(renamedFolderPath);
+        if (byKeyboard && nodeId !== undefined) setFocusRequest({ target: 'node', nodeId });
+      },
 
-  const closeCreateDialog = () => {
-    const { mode: current } = store.getState();
-    actions.endMode('createDialog');
-    if (current.kind === 'createDialog') setFocusRequest({ target: 'opener', opener: current.opener });
-  };
+      /**
+       * A folder was renamed in the storage. While its rename field is still the open one, `finishRename` moves the
+       * expansion state: the store renders at once, and moving it here would unmount the field before it reports that
+       * it is done. When another field has replaced it, the field does not report any more, so the state moves now.
+       */
+      folderRenamed: (fromPath: string, toPath: string) => {
+        const { mode } = store.getState();
+        if (mode.kind === 'renaming' && mode.node.kind === 'folder' && mode.node.path === fromPath) return;
+        actions.folderRenamed(fromPath, toPath);
+      },
+    };
+  }, [store, openFile]);
 
-  const closeDelete = () => {
-    const { mode: current } = store.getState();
-    actions.endMode('deleting');
-    if (current.kind === 'deleting') setFocusRequest({ target: 'node', nodeId: current.node.id });
-  };
+  /** What the parts around the rows do: the toolbar, the search, the tree and the dialogs */
+  const actions = useMemo(() => {
+    const storeActions = store.getState();
+    return {
+      setSearchText: storeActions.setSearchText,
+      setLastFocusedNode: storeActions.setLastFocusedNode,
+      openCreateDialog: storeActions.openCreateDialog,
+      reload,
 
-  /**
-   * Asks to delete a node. The confirmation names its full path, so that the user can tell entries of the same name
-   * in different folders apart.
-   */
-  const requestDelete = (node: ExplorerFile) => {
-    actions.requestDelete(node, node.path);
-  };
+      /** Starts creating in the last focused tree item's folder, else the open file's, else the root */
+      startCreate: (kind: NewEntryPlacement['kind'], opener: HTMLElement) => {
+        const folderPath = targetFolderPath({ lastFocused: store.getState().lastFocusedNodeId, selectedId, tree });
+        storeActions.startCreate({ kind, folderPath }, opener);
+      },
 
-  /** Deletes the node from the storage, and leaves the editor when the open file is deleted with it */
-  const deleteNode = async (node: ExplorerFile) => {
-    const openPath = files.find((file) => file.id === selectedId)?.path;
-    let deletesOpenFile;
-    if (node.kind === 'folder') {
-      await deleteFolder(node.path);
-      deletesOpenFile = !!openPath?.startsWith(`${node.path}/`);
-    } else {
-      await deleteFile(node.id);
-      deletesOpenFile = node.id === selectedId;
-    }
-    if (deletesOpenFile) void navigate('/workspace');
-  };
+      closeCreateDialog: () => {
+        const { mode } = store.getState();
+        storeActions.endMode('createDialog');
+        if (mode.kind === 'createDialog') setFocusRequest({ target: 'opener', opener: mode.opener });
+      },
 
-  const renamed = mode.kind === 'renaming' ? mode.node : undefined;
+      closeDelete: () => {
+        const { mode } = store.getState();
+        storeActions.endMode('deleting');
+        if (mode.kind === 'deleting') setFocusRequest({ target: 'node', nodeId: mode.node.id });
+      },
 
-  return {
-    store,
-    selectedId,
-    loading,
-    error,
-    reload,
-    /** Whether there are files or folders at all, before the search */
-    isEmpty: tree.length === 0,
-    /** The tree to show: filtered by the search, with the node of a new entry */
-    nodes,
-    searchText,
-    query,
-    expandedFolders,
-    mode,
-    focusRequest,
-    newEntry,
-    /** The file being renamed */
-    renaming: renamed?.kind === 'file' ? files.find((file) => file.id === renamed.id) : undefined,
-    /** The path of the folder being renamed */
-    renamingFolder: renamed?.kind === 'folder' ? renamed.path : undefined,
-    setSearchText: actions.setSearchText,
-    toggleFolder: actions.toggleFolder,
-    setLastFocusedNode: actions.setLastFocusedNode,
-    openCreateDialog: actions.openCreateDialog,
-    closeCreateDialog,
-    startCreate,
-    finishCreate,
-    startRename: actions.startRename,
-    finishRename,
-    folderRenamed,
-    requestDelete,
-    closeDelete,
-    deleteNode,
-    openFile,
-  };
+      /** Deletes the node from the storage, and leaves the editor when the open file is deleted with it */
+      deleteNode: async (node: ExplorerFile) => {
+        const openPath = findNode(tree, selectedId)?.path;
+        let deletesOpenFile;
+        if (node.kind === 'folder') {
+          await deleteFolder(node.path);
+          deletesOpenFile = !!openPath?.startsWith(`${node.path}/`);
+        } else {
+          await deleteFile(node.id);
+          deletesOpenFile = node.id === selectedId;
+        }
+        if (deletesOpenFile) void navigate('/workspace');
+      },
+    };
+  }, [store, reload, selectedId, tree, deleteFile, deleteFolder, navigate]);
+
+  return useMemo(
+    () => ({
+      store,
+      rowActions,
+      actions,
+      selectedId,
+      loading,
+      error,
+      /** The whole tree of the stored files and folders, before the search */
+      tree,
+      focusRequest,
+    }),
+    [store, rowActions, actions, selectedId, loading, error, tree, focusRequest],
+  );
 };

@@ -1,43 +1,45 @@
 import { ReactNode } from 'react';
 import { vi } from 'vitest';
 
-import { ExplorerContext, ExplorerController } from './ExplorerContext';
+import { ExplorerContext, ExplorerController, ExplorerRowContext } from './ExplorerContext';
+import { createExplorerStore } from './model/explorer-store';
 
-/** A controller with an idle Explorer and spies for its actions, for the tests of the components */
-export const createExplorerController = (overrides: Partial<ExplorerController> = {}): ExplorerController =>
-  ({
-    selectedId: undefined,
-    loading: false,
-    error: undefined,
-    reload: vi.fn(),
-    isEmpty: false,
-    nodes: [],
-    searchText: '',
-    query: '',
-    expandedFolders: {},
-    mode: { kind: 'idle' },
-    focusRequest: undefined,
-    newEntry: undefined,
-    renaming: undefined,
-    renamingFolder: undefined,
-    setSearchText: vi.fn(),
+/**
+ * A controller for the tests of the components: a real store, to put the Explorer into the state under test, and
+ * spies in place of what the controller does.
+ */
+export const createExplorerController = (overrides: Partial<ExplorerController> = {}): ExplorerController => ({
+  store: createExplorerStore(),
+  rowActions: {
     toggleFolder: vi.fn(),
-    setLastFocusedNode: vi.fn(),
-    openCreateDialog: vi.fn(),
-    closeCreateDialog: vi.fn(),
-    startCreate: vi.fn(),
-    finishCreate: vi.fn(),
     startRename: vi.fn(),
+    openFile: vi.fn(),
+    requestDelete: vi.fn(),
+    finishCreate: vi.fn(),
     finishRename: vi.fn(),
     folderRenamed: vi.fn(),
-    requestDelete: vi.fn(),
+  },
+  actions: {
+    setSearchText: vi.fn(),
+    setLastFocusedNode: vi.fn(),
+    openCreateDialog: vi.fn(),
+    reload: vi.fn(),
+    startCreate: vi.fn(),
+    closeCreateDialog: vi.fn(),
     closeDelete: vi.fn(),
     deleteNode: vi.fn(),
-    openFile: vi.fn(),
-    ...overrides,
-  }) as ExplorerController;
+  },
+  selectedId: undefined,
+  loading: false,
+  error: undefined,
+  tree: [],
+  focusRequest: undefined,
+  ...overrides,
+});
 
 /** Hands the controller to the components under test, like the Explorer does */
 export const withExplorer = (controller: ExplorerController, children: ReactNode) => (
-  <ExplorerContext.Provider value={controller}>{children}</ExplorerContext.Provider>
+  <ExplorerContext.Provider value={controller}>
+    <ExplorerRowContext.Provider value={controller}>{children}</ExplorerRowContext.Provider>
+  </ExplorerContext.Provider>
 );

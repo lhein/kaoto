@@ -1,10 +1,11 @@
 import { Document, DocumentConfiguration, Folder, FolderOpen, TestTool } from '@carbon/icons-react';
 import { TreeNode } from '@carbon/react';
-import { ComponentProps, FunctionComponent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import { ComponentProps, FunctionComponent, KeyboardEvent as ReactKeyboardEvent, memo, ReactNode } from 'react';
 
+import { useFiles } from '../../hooks/useFiles';
 import { EntryLabel } from './EntryLabel';
-import { useExplorerContext } from './ExplorerContext';
-import { ExplorerFile } from './model/explorer-file';
+import { useExplorerRowContext, useExplorerRowState } from './ExplorerContext';
+import { ExplorerFile, ExplorerFileNode } from './model/explorer-file';
 import { getNodeKey, NEW_ENTRY_ID } from './model/explorer-tree';
 import { NewEntryField } from './NewEntryField';
 import { RenameField } from './RenameField';
@@ -13,10 +14,7 @@ import { isOpenable } from './useExplorer';
 
 type TreeNodeProps = ComponentProps<typeof TreeNode>;
 
-/** The props that the tree around the node passes on to it, like its depth and the selection */
-type PassedByTree = Omit<TreeNodeProps, 'id' | 'label' | 'children'>;
-
-interface ExplorerNodeProps extends PassedByTree {
+interface ExplorerNodeProps {
   node: ExplorerFile;
 }
 
@@ -31,72 +29,81 @@ function getFileIcon(type: ExplorerFile['type']) {
   return Document;
 }
 
-/**
- * One row of the Explorer tree: a file, a folder with its rows, or the name field of a new entry.
- *
- * Carbon's tree hands props to its nodes, like the depth and the selection, so they are passed on to the `TreeNode`.
- */
-export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...passedByTree }) => {
-  const explorer = useExplorerContext();
-  const { newEntry } = explorer;
+/** The rename field of a file, which works on the stored file */
+const RenameFileField: FunctionComponent<{ node: ExplorerFileNode; onDone: (byKeyboard: boolean) => void }> = ({
+  node,
+  onDone,
+}) => {
+  const file = useFiles().files.find((candidate) => candidate.id === node.id);
+  return file ? <RenameField file={file} onDone={onDone} /> : null;
+};
 
-  if (node.id === NEW_ENTRY_ID && newEntry) {
-    return (
-      <TreeNode
-        {...passedByTree}
-        id={NEW_ENTRY_ID}
-        label={
-          <NewEntryField kind={newEntry.entryKind} folderPath={newEntry.folderPath} onDone={explorer.finishCreate} />
-        }
-        renderIcon={newEntry.entryKind === 'folder' ? Folder : Document}
-        data-testid="explorer-new-entry"
-      />
-    );
-  }
+/** The name field of a new file or folder, in place of a row */
+const NewEntryNode: FunctionComponent = () => {
+  const { rowActions } = useExplorerRowContext();
+  const entryKind = useExplorerRowState((state) => (state.mode.kind === 'creating' ? state.mode.entryKind : undefined));
+  const folderPath = useExplorerRowState((state) => (state.mode.kind === 'creating' ? state.mode.folderPath : ''));
+  if (!entryKind) return null;
+
+  return (
+    <TreeNode
+      id={NEW_ENTRY_ID}
+      label={<NewEntryField kind={entryKind} folderPath={folderPath} onDone={rowActions.finishCreate} />}
+      renderIcon={entryKind === 'folder' ? Folder : Document}
+      data-testid="explorer-new-entry"
+    />
+  );
+};
+
+/**
+ * One row of the Explorer tree: a file, or a folder with its rows.
+ *
+ * A row subscribes to its own part of the state: whether it is expanded and whether it is being renamed. So opening a
+ * folder or starting to rename renders that row and not the others.
+ */
+const ExplorerEntryNode: FunctionComponent<ExplorerNodeProps> = ({ node }) => {
+  const { rowActions } = useExplorerRowContext();
+  const query = useExplorerRowState((state) => state.searchText.toLowerCase());
+  const isExpandedByUser = useExplorerRowState((state) => !!state.expandedFolders[node.id]);
+  const isRenaming = useExplorerRowState((state) => state.mode.kind === 'renaming' && state.mode.node.id === node.id);
+  const newEntryKey = useExplorerRowState((state) => (state.mode.kind === 'creating' ? state.mode.key : undefined));
 
   /** Delete or Backspace on the row asks to delete it, F2 renames it */
   const handleKeyDown = (event: ReactKeyboardEvent) => {
     if (DELETE_KEYS.has(event.key)) {
       // The key event bubbles through the folders around the row
       event.stopPropagation();
-      explorer.requestDelete(node);
+      rowActions.requestDelete(node);
     } else if (event.key === 'F2') {
       event.stopPropagation();
       event.preventDefault();
-      explorer.startRename(node);
+      rowActions.startRename(node);
     }
   };
 
   let label: ReactNode;
-  if (explorer.renaming?.id === node.id) {
-    label = <RenameField file={explorer.renaming} onDone={explorer.finishRename} />;
-  } else if (explorer.renamingFolder !== undefined && node.kind === 'folder' && node.path === explorer.renamingFolder) {
-    label = (
-      <RenameFolderField
-        folderPath={explorer.renamingFolder}
-        onDone={(byKeyboard, renamedPath) => {
-          explorer.finishRename(byKeyboard, renamedPath);
-        }}
-        onRenamed={explorer.folderRenamed}
-      />
-    );
-  } else {
+  if (!isRenaming) {
     label = (
       <EntryLabel
         node={node}
-        query={explorer.query}
-        requestDelete={explorer.requestDelete}
-        requestRename={explorer.startRename}
+        query={query}
+        requestDelete={rowActions.requestDelete}
+        requestRename={rowActions.startRename}
       />
     );
+  } else if (node.kind === 'folder') {
+    label = (
+      <RenameFolderField folderPath={node.path} onDone={rowActions.finishRename} onRenamed={rowActions.folderRenamed} />
+    );
+  } else {
+    label = <RenameFileField node={node} onDone={rowActions.finishRename} />;
   }
 
   if (node.kind === 'folder') {
     // A search shows what it found, also in collapsed folders
-    const isExpanded = explorer.query ? true : !!explorer.expandedFolders[node.id];
+    const isExpanded = query ? true : isExpandedByUser;
     return (
       <TreeNode
-        {...passedByTree}
         id={node.id}
         label={label}
         renderIcon={isExpanded ? FolderOpen : Folder}
@@ -104,7 +111,7 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
         // With enableTreeviewControllable, Carbon calls onToggle(isExpanded) rather than (event, node).
         onToggle={
           ((expanded: boolean) => {
-            explorer.toggleFolder(node.id, expanded);
+            rowActions.toggleFolder(node.id, expanded);
           }) as TreeNodeProps['onToggle']
         }
         onKeyDown={handleKeyDown}
@@ -112,7 +119,7 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
         data-testid={`explorer-folder-${node.path}`}
       >
         {node.children.map((child) => (
-          <ExplorerNode key={getNodeKey(child, newEntry?.key)} node={child} />
+          <ExplorerNode key={getNodeKey(child, newEntryKey)} node={child} />
         ))}
       </TreeNode>
     );
@@ -120,7 +127,6 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
 
   return (
     <TreeNode
-      {...passedByTree}
       id={node.id}
       label={label}
       renderIcon={getFileIcon(node.type)}
@@ -128,8 +134,14 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
       onKeyDown={handleKeyDown}
       aria-keyshortcuts={KEY_SHORTCUTS}
       onSelect={() => {
-        if (isOpenable(node.type)) explorer.openFile(node.id);
+        if (isOpenable(node.type)) rowActions.openFile(node.id);
       }}
     />
   );
 };
+
+/** A row of the Explorer tree. It renders again only for a new node or for its own part of the state. */
+export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = memo(({ node }) =>
+  node.id === NEW_ENTRY_ID ? <NewEntryNode /> : <ExplorerEntryNode node={node} />,
+);
+ExplorerNode.displayName = 'ExplorerNode';

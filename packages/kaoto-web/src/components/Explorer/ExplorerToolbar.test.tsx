@@ -2,25 +2,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 
-import { ExplorerContext, ExplorerController } from './ExplorerContext';
+import { createExplorerController, withExplorer } from './explorer-controller.mock';
 import { ExplorerToolbar } from './ExplorerToolbar';
 
 describe('ExplorerToolbar', () => {
-  const openCreateDialog = vi.fn();
-  const startCreate = vi.fn();
   const addButtonRef = createRef<HTMLButtonElement>();
 
-  const renderToolbar = () =>
-    render(
-      <ExplorerContext.Provider value={{ openCreateDialog, startCreate } as unknown as ExplorerController}>
-        <ExplorerToolbar addButtonRef={addButtonRef} />
-      </ExplorerContext.Provider>,
-    );
-
-  beforeEach(() => {
-    openCreateDialog.mockReset();
-    startCreate.mockReset();
-  });
+  const renderToolbar = () => {
+    const controller = createExplorerController();
+    render(withExplorer(controller, <ExplorerToolbar addButtonRef={addButtonRef} />));
+    return controller.actions;
+  };
 
   it('shows the heading of the panel', () => {
     renderToolbar();
@@ -30,12 +22,12 @@ describe('ExplorerToolbar', () => {
 
   it('opens the Create new file dialog and names the button that opened it', async () => {
     const user = userEvent.setup();
-    renderToolbar();
+    const actions = renderToolbar();
     const button = screen.getByRole('button', { name: 'Create a file' });
 
     await user.click(button);
 
-    expect(openCreateDialog).toHaveBeenCalledWith(button);
+    expect(actions.openCreateDialog).toHaveBeenCalledWith(button);
     expect(addButtonRef.current).toBe(button);
   });
 
@@ -44,12 +36,12 @@ describe('ExplorerToolbar', () => {
     ['New folder', 'folder'],
   ])('starts creating with %s', async (name, kind) => {
     const user = userEvent.setup();
-    renderToolbar();
+    const actions = renderToolbar();
     const button = screen.getByRole('button', { name });
 
     await user.click(button);
 
-    expect(startCreate).toHaveBeenCalledWith(kind, button);
+    expect(actions.startCreate).toHaveBeenCalledWith(kind, button);
   });
 
   it('cannot be rendered outside of an Explorer', () => {

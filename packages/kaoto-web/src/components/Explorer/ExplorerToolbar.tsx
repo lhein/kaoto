@@ -11,7 +11,7 @@ interface ExplorerToolbarProps {
 
 /** The heading of the Explorer with the buttons to create files and folders */
 export const ExplorerToolbar: FunctionComponent<ExplorerToolbarProps> = ({ addButtonRef }) => {
-  const explorer = useExplorerContext();
+  const { actions } = useExplorerContext();
 
   return (
     <div className="cs--explorer__toolbar">
@@ -25,7 +25,7 @@ export const ExplorerToolbar: FunctionComponent<ExplorerToolbarProps> = ({ addBu
           data-testid="explorer-add"
           ref={addButtonRef}
           onClick={(event: MouseEvent<HTMLElement>) => {
-            explorer.openCreateDialog(event.currentTarget);
+            actions.openCreateDialog(event.currentTarget);
           }}
         >
           <Add />
@@ -37,7 +37,7 @@ export const ExplorerToolbar: FunctionComponent<ExplorerToolbarProps> = ({ addBu
           align="bottom"
           data-testid="explorer-new-file"
           onClick={(event: MouseEvent<HTMLElement>) => {
-            explorer.startCreate('file', event.currentTarget);
+            actions.startCreate('file', event.currentTarget);
           }}
         >
           <DocumentAdd />
@@ -49,7 +49,7 @@ export const ExplorerToolbar: FunctionComponent<ExplorerToolbarProps> = ({ addBu
           align="bottom"
           data-testid="explorer-new-folder"
           onClick={(event: MouseEvent<HTMLElement>) => {
-            explorer.startCreate('folder', event.currentTarget);
+            actions.startCreate('folder', event.currentTarget);
           }}
         >
           <FolderAdd />

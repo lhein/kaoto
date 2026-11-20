@@ -3,13 +3,12 @@
 // issue) — the file-tree navigation and filtering logic may be consolidated.
 import './Explorer.scss';
 
-import { Search } from '@carbon/react';
-import { FunctionComponent, useRef } from 'react';
+import { FunctionComponent, useMemo, useRef } from 'react';
 
 import { usePanelResizer } from '../../hooks/usePanelResizer';
-import { CreateFileModal } from '../CreateFileModal/CreateFileModal';
-import { ExplorerContext } from './ExplorerContext';
-import { ExplorerDeleteDialog } from './ExplorerDeleteDialog';
+import { ExplorerContext, ExplorerRowContext } from './ExplorerContext';
+import { ExplorerDialogs } from './ExplorerDialogs';
+import { ExplorerSearch } from './ExplorerSearch';
 import { ExplorerToolbar } from './ExplorerToolbar';
 import { ExplorerTree } from './ExplorerTree';
 import { useExplorer } from './useExplorer';
@@ -21,11 +20,13 @@ const DEFAULT_WIDTH = 240;
 
 /**
  * The panel with the files and folders of the workspace. It lays out its parts and holds no state of its own:
- * `useExplorer` is the controller, the store and the tree functions in `model/` are the model.
+ * `useExplorer` is the controller, the store and the tree functions in `model/` are the model. The parts subscribe to
+ * the state they show, so this component renders for a new width, new files or another open file only.
  */
 export const Explorer: FunctionComponent = () => {
   const explorer = useExplorer();
-  const { mode } = explorer;
+  const { store, rowActions } = explorer;
+  const rowContext = useMemo(() => ({ store, rowActions }), [store, rowActions]);
   const treeRef = useRef<HTMLDivElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const { width, handleResizerMouseDown } = usePanelResizer({
@@ -37,45 +38,24 @@ export const Explorer: FunctionComponent = () => {
 
   return (
     <ExplorerContext.Provider value={explorer}>
-      <aside
-        className="cs--explorer"
-        data-testid="explorer"
-        aria-label="Project explorer"
-        style={{ inlineSize: `${width}px` }}
-      >
-        <ExplorerToolbar addButtonRef={addButtonRef} />
-
-        <div className="cs--explorer__search">
-          <Search
-            size="sm"
-            labelText="Search files"
-            placeholder="Search files…"
-            value={explorer.searchText}
-            onChange={(event) => {
-              explorer.setSearchText(event.target.value);
-            }}
-            data-testid="explorer-search"
+      <ExplorerRowContext.Provider value={rowContext}>
+        <aside
+          className="cs--explorer"
+          data-testid="explorer"
+          aria-label="Project explorer"
+          style={{ inlineSize: `${width}px` }}
+        >
+          <ExplorerToolbar addButtonRef={addButtonRef} />
+          <ExplorerSearch />
+          <button
+            className="cs--explorer__resizer"
+            aria-label="Resize explorer panel"
+            onMouseDown={handleResizerMouseDown}
           />
-        </div>
-
-        <button
-          className="cs--explorer__resizer"
-          aria-label="Resize explorer panel"
-          onMouseDown={handleResizerMouseDown}
-        />
-
-        <ExplorerTree treeRef={treeRef} />
-
-        {mode.kind === 'createDialog' && <CreateFileModal onClose={explorer.closeCreateDialog} />}
-        {mode.kind === 'deleting' && (
-          <ExplorerDeleteDialog
-            path={mode.path}
-            isFolder={mode.node.kind === 'folder'}
-            onDelete={() => explorer.deleteNode(mode.node)}
-            onClose={explorer.closeDelete}
-          />
-        )}
-      </aside>
+          <ExplorerTree treeRef={treeRef} />
+          <ExplorerDialogs />
+        </aside>
+      </ExplorerRowContext.Provider>
     </ExplorerContext.Provider>
   );
 };

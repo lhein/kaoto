@@ -8,24 +8,14 @@ import { resetTestIndexedDB } from '../../test/indexed-db';
 import { createExplorerController, withExplorer } from './explorer-controller.mock';
 import { ExplorerController } from './ExplorerContext';
 import { ExplorerNode } from './ExplorerNode';
-import { toFolderId } from './model/build-tree';
 import { ExplorerFile } from './model/explorer-file';
+import { fileNode, folderNode } from './model/explorer-test-nodes';
 import { NEW_ENTRY_ID } from './model/explorer-tree';
 
-const routeFile: ExplorerFile = { id: 'main-flow', name: 'main-flow.camel.yaml', type: 'integration' };
-const schemaFile: ExplorerFile = { id: 'schema', name: 'schema.xsd', type: 'document' };
-const ordersFolder: ExplorerFile = {
-  id: toFolderId('integrations/orders'),
-  name: 'orders',
-  type: 'folder',
-  children: [routeFile],
-};
-const integrationsFolder: ExplorerFile = {
-  id: toFolderId('integrations'),
-  name: 'integrations',
-  type: 'folder',
-  children: [ordersFolder, schemaFile],
-};
+const routeFile = fileNode('main-flow', 'integrations/orders/main-flow.camel.yaml');
+const schemaFile = fileNode('schema', 'integrations/schema.xsd');
+const ordersFolder = folderNode('integrations/orders', [routeFile]);
+const integrationsFolder = folderNode('integrations', [ordersFolder, schemaFile]);
 
 const ALL_EXPANDED = { [integrationsFolder.id]: true, [ordersFolder.id]: true };
 
@@ -104,7 +94,7 @@ describe('ExplorerNode', () => {
 
       await user.keyboard('{F2}');
 
-      expect(controller.startRename).toHaveBeenCalledWith('main-flow');
+      expect(controller.startRename).toHaveBeenCalledWith(routeFile);
     });
 
     it('ignores other keys', async () => {
@@ -202,7 +192,7 @@ describe('ExplorerNode', () => {
       ['file', 'New file name'],
       ['folder', 'New folder name'],
     ] as const)('shows the name field of a new %s', (entryKind, label) => {
-      const newEntryNode: ExplorerFile = { id: NEW_ENTRY_ID, name: '', type: 'document' };
+      const newEntryNode = fileNode(NEW_ENTRY_ID, '');
       renderNode(newEntryNode, {
         newEntry: { kind: 'creating', entryKind, folderPath: '', key: 1, opener: document.createElement('button') },
       });

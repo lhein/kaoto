@@ -67,7 +67,11 @@ describe('NewEntryField', () => {
     const file = await storedFile('integrations/orders.camel.yaml');
     expect(fetchMock.mock.calls.map(([url]) => url.pathname)).toContain('/camel-catalog/starter-templates/route.yaml');
     expect(file?.content).toMatch(/^- route:\n {4}id: route-\d{4}\n$/);
-    expect(onDone).toHaveBeenCalledWith(true, { id: file?.id, path: 'integrations/orders.camel.yaml' });
+    expect(onDone).toHaveBeenCalledWith(true, {
+      kind: 'file',
+      id: file?.id,
+      path: 'integrations/orders.camel.yaml',
+    });
   });
 
   it('creates a file of another kind empty, without loading a template', async () => {
@@ -90,7 +94,11 @@ describe('NewEntryField', () => {
     await user.keyboard('routes{Enter}');
 
     await waitFor(() => {
-      expect(onDone).toHaveBeenCalledWith(true, { id: toFolderId('integrations/routes'), path: 'integrations/routes' });
+      expect(onDone).toHaveBeenCalledWith(true, {
+        kind: 'folder',
+        id: toFolderId('integrations/routes'),
+        path: 'integrations/routes',
+      });
     });
     expect(await filesStore.getFolders()).toContain('integrations/routes');
   });
@@ -102,7 +110,7 @@ describe('NewEntryField', () => {
     await user.keyboard('resources{Enter}');
 
     await waitFor(() => {
-      expect(onDone).toHaveBeenCalledWith(true, { id: toFolderId('resources'), path: 'resources' });
+      expect(onDone).toHaveBeenCalledWith(true, { kind: 'folder', id: toFolderId('resources'), path: 'resources' });
     });
   });
 

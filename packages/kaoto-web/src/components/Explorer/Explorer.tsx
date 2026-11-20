@@ -70,7 +70,7 @@ export const Explorer: FunctionComponent = () => {
         {mode.kind === 'deleting' && (
           <ExplorerDeleteDialog
             path={mode.path}
-            isFolder={!!mode.node.children}
+            isFolder={mode.node.kind === 'folder'}
             onDelete={() => explorer.deleteNode(mode.node)}
             onClose={explorer.closeDelete}
           />

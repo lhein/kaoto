@@ -12,6 +12,7 @@ import { TAKEN, takenPaths } from './taken-paths';
 export type NewEntryKind = 'file' | 'folder';
 
 export interface CreatedEntry {
+  kind: NewEntryKind;
   /** The id of its tree node */
   id: string;
   path: string;
@@ -49,7 +50,7 @@ export const NewEntryField: FunctionComponent<NewEntryFieldProps> = ({ kind, fol
   const commit = async (path: string) => {
     if (kind === 'folder') {
       await createFolder(path);
-      created.current = { id: toFolderId(path), path };
+      created.current = { kind, id: toFolderId(path), path };
       return;
     }
     const fileKind = FILE_KINDS.find(({ extension }) => path.endsWith(extension));
@@ -57,7 +58,7 @@ export const NewEntryField: FunctionComponent<NewEntryFieldProps> = ({ kind, fol
     const content = fileKind
       ? resolveStarterTemplate(await fetchStarterTemplate(CATALOG_URL, fileKind.template), fileName)
       : '';
-    created.current = { id: (await createFile({ path, content })).id, path };
+    created.current = { kind, id: (await createFile({ path, content })).id, path };
   };
 
   return (

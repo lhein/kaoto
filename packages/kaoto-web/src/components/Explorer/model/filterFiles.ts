@@ -7,7 +7,7 @@ import { ExplorerFile } from './explorer-file';
 export function findPath(files: ExplorerFile[], targetId: string): ExplorerFile[] | null {
   for (const node of files) {
     if (node.id === targetId) return [node];
-    if (node.children) {
+    if (node.kind === 'folder') {
       const childPath = findPath(node.children, targetId);
       if (childPath) return [node, ...childPath];
     }
@@ -30,7 +30,7 @@ export function filterFiles(files: ExplorerFile[], query: string): ExplorerFile[
   if (!query) return files;
   return files.reduce<ExplorerFile[]>((acc, node) => {
     const nameMatches = node.name.toLowerCase().includes(query);
-    if (node.children) {
+    if (node.kind === 'folder') {
       if (nameMatches) {
         // Folder name matched — show it with all original children.
         acc.push(node);

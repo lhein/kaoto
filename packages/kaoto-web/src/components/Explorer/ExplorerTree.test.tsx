@@ -6,14 +6,11 @@ import { describe, expect, it } from 'vitest';
 import { createExplorerController, withExplorer } from './explorer-controller.mock';
 import { ExplorerController } from './ExplorerContext';
 import { ExplorerTree } from './ExplorerTree';
-import { toFolderId } from './model/build-tree';
 import { ExplorerFile } from './model/explorer-file';
+import { fileNode, folderNode } from './model/explorer-test-nodes';
 import { ROOT_TARGET } from './model/explorer-tree';
 
-const nodes: ExplorerFile[] = [
-  { id: toFolderId('routes'), name: 'routes', type: 'folder', children: [] },
-  { id: 'a', name: 'a.camel.yaml', type: 'integration' },
-];
+const nodes: ExplorerFile[] = [folderNode('routes'), fileNode('a', 'a.camel.yaml')];
 
 describe('ExplorerTree', () => {
   const treeRef = createRef<HTMLDivElement>();

@@ -1,9 +1,9 @@
 import { toFolderId } from './build-tree';
-import { ExplorerFile } from './explorer-file';
 import { createExplorerStore } from './explorer-store';
+import { fileNode } from './explorer-test-nodes';
 
 const opener = document.createElement('button');
-const fileNode: ExplorerFile = { id: 'a', name: 'a.camel.yaml', type: 'integration' };
+const node = fileNode('a', 'routes/a.camel.yaml');
 
 describe('createExplorerStore', () => {
   it('starts idle, without a search and with every folder collapsed', () => {
@@ -71,11 +71,11 @@ describe('createExplorerStore', () => {
   describe('modes', () => {
     it('replaces the mode before when another one starts', () => {
       const store = createExplorerStore();
-      store.getState().startRename('a');
+      store.getState().startRename(node);
 
-      store.getState().requestDelete(fileNode, 'routes/a.camel.yaml');
+      store.getState().requestDelete(node, 'routes/a.camel.yaml');
 
-      expect(store.getState().mode).toEqual({ kind: 'deleting', node: fileNode, path: 'routes/a.camel.yaml' });
+      expect(store.getState().mode).toEqual({ kind: 'deleting', node, path: 'routes/a.camel.yaml' });
     });
 
     it.each([
@@ -88,13 +88,13 @@ describe('createExplorerStore', () => {
       [
         'renaming',
         (store: ReturnType<typeof createExplorerStore>) => {
-          store.getState().startRename('a');
+          store.getState().startRename(node);
         },
       ],
       [
         'deleting',
         (store: ReturnType<typeof createExplorerStore>) => {
-          store.getState().requestDelete(fileNode, 'a');
+          store.getState().requestDelete(node, 'a');
         },
       ],
     ] as const)('ends the %s mode', (kind, start) => {
@@ -109,8 +109,8 @@ describe('createExplorerStore', () => {
 
     it('leaves the mode alone when a field of another mode reports late', () => {
       const store = createExplorerStore();
-      store.getState().startRename('a');
-      store.getState().requestDelete(fileNode, 'a');
+      store.getState().startRename(node);
+      store.getState().requestDelete(node, 'a');
 
       store.getState().endMode('renaming');
 

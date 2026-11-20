@@ -23,8 +23,8 @@ export type ExplorerMode =
     }
   /** The Create new file dialog, with the element that opened it */
   | { kind: 'createDialog'; opener: HTMLElement }
-  /** A name field in place of the file or folder with this tree node id */
-  | { kind: 'renaming'; nodeId: string }
+  /** A name field in place of the name of this file or folder */
+  | { kind: 'renaming'; node: ExplorerFile }
   /** The delete confirmation, with the path the entry had when it was asked for */
   | { kind: 'deleting'; node: ExplorerFile; path: string };
 
@@ -51,7 +51,7 @@ export interface ExplorerActions {
   openCreateDialog: (opener: HTMLElement) => void;
   /** Shows the name field of a new entry in the folder: clears the search, which would hide it, and opens the folder */
   startCreate: (entry: NewEntryPlacement, opener: HTMLElement) => void;
-  startRename: (nodeId: string) => void;
+  startRename: (node: ExplorerFile) => void;
   requestDelete: (node: ExplorerFile, path: string) => void;
   /**
    * Ends the mode of this kind. A field or dialog that reports late, after another mode started, leaves that mode
@@ -106,8 +106,8 @@ export const createExplorerStore = () =>
         },
       }));
     },
-    startRename: (nodeId) => {
-      set({ mode: { kind: 'renaming', nodeId } });
+    startRename: (node) => {
+      set({ mode: { kind: 'renaming', node } });
     },
     requestDelete: (node, path) => {
       set({ mode: { kind: 'deleting', node, path } });

@@ -1,4 +1,5 @@
 import { buildTree, toFolderId } from './build-tree';
+import { childrenOf, fileNode, folderNode } from './explorer-test-nodes';
 import { findPath } from './filterFiles';
 
 describe('buildTree', () => {
@@ -7,30 +8,24 @@ describe('buildTree', () => {
 
     expect(tree).toEqual([
       {
+        kind: 'folder',
         id: toFolderId('integrations'),
         name: 'integrations',
+        path: 'integrations',
         type: 'folder',
         children: [
-          {
-            id: toFolderId('integrations/routes'),
-            name: 'routes',
-            type: 'folder',
-            children: [
-              {
-                id: toFolderId('integrations/routes/async'),
-                name: 'async',
-                type: 'folder',
-                children: [{ id: 'k', name: 'k.camel.yaml', type: 'integration' }],
-              },
-            ],
-          },
+          folderNode('integrations/routes', [
+            folderNode('integrations/routes/async', [fileNode('k', 'integrations/routes/async/k.camel.yaml')]),
+          ]),
         ],
       },
     ]);
   });
 
   it('keeps files at the root', () => {
-    expect(buildTree([{ id: 'a', path: 'a.xsd' }])).toEqual([{ id: 'a', name: 'a.xsd', type: 'document' }]);
+    expect(buildTree([{ id: 'a', path: 'a.xsd' }])).toEqual([
+      { kind: 'file', id: 'a', name: 'a.xsd', path: 'a.xsd', type: 'document' },
+    ]);
   });
 
   it('derives the type of a file from its path', () => {
@@ -65,7 +60,7 @@ describe('buildTree', () => {
     ]);
 
     expect(tree).toHaveLength(1);
-    expect(tree[0].children?.map((node) => node.id)).toEqual(['x', 'y']);
+    expect(childrenOf(tree[0]).map((node) => node.id)).toEqual(['x', 'y']);
   });
 
   it('sorts names naturally, ignoring case and comparing numbers by value', () => {
@@ -92,28 +87,12 @@ describe('buildTree', () => {
   });
 
   it('shows created folders without files, with their parents', () => {
-    expect(buildTree([], ['a/b', 'c'])).toEqual([
-      {
-        id: toFolderId('a'),
-        name: 'a',
-        type: 'folder',
-        children: [{ id: toFolderId('a/b'), name: 'b', type: 'folder', children: [] }],
-      },
-      { id: toFolderId('c'), name: 'c', type: 'folder', children: [] },
-    ]);
+    expect(buildTree([], ['a/b', 'c'])).toEqual([folderNode('a', [folderNode('a/b')]), folderNode('c')]);
   });
 
   it('merges a created folder with the folder of its files', () => {
     expect(buildTree([{ id: 'f', path: 'a/f.camel.yaml' }], ['a', 'a/empty'])).toEqual([
-      {
-        id: toFolderId('a'),
-        name: 'a',
-        type: 'folder',
-        children: [
-          { id: toFolderId('a/empty'), name: 'empty', type: 'folder', children: [] },
-          { id: 'f', name: 'f.camel.yaml', type: 'integration' },
-        ],
-      },
+      folderNode('a', [folderNode('a/empty'), fileNode('f', 'a/f.camel.yaml')]),
     ]);
   });
 });

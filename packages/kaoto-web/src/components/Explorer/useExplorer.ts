@@ -4,10 +4,10 @@ import { useStore } from 'zustand';
 
 import { useFiles } from '../../hooks/useFiles';
 import { getFileType } from '../../services/files/stored-file';
-import { buildTree, toFolderId, toFolderPath } from './model/build-tree';
+import { buildTree, toFolderId } from './model/build-tree';
 import { ExplorerFile } from './model/explorer-file';
 import { createExplorerStore } from './model/explorer-store';
-import { insertNewEntry, isFolderId, NewEntryPlacement, targetFolderPath } from './model/explorer-tree';
+import { insertNewEntry, NewEntryPlacement, targetFolderPath } from './model/explorer-tree';
 import { filterFiles } from './model/filterFiles';
 import { CreatedEntry } from './NewEntryField';
 
@@ -75,12 +75,7 @@ export const useExplorer = () => {
 
   /** Starts creating in the last focused tree item's folder, else the open file's, else the root */
   const startCreate = (kind: NewEntryPlacement['kind'], opener: HTMLElement) => {
-    const folderPath = targetFolderPath({
-      lastFocused: store.getState().lastFocusedNodeId,
-      selectedId,
-      files,
-      folders,
-    });
+    const folderPath = targetFolderPath({ lastFocused: store.getState().lastFocusedNodeId, selectedId, tree });
     actions.startCreate({ kind, folderPath }, opener);
   };
 
@@ -93,21 +88,21 @@ export const useExplorer = () => {
     } else if (byKeyboard && current.kind === 'creating') {
       setFocusRequest({ target: 'opener', opener: current.opener });
     }
-    if (created && !isFolderId(created.id) && isOpenable(getFileType(created.path))) openFile(created.id);
+    if (created?.kind === 'file' && isOpenable(getFileType(created.path))) openFile(created.id);
   };
 
   /**
-   * Ends renaming; `renamedNodeId` is the node id after the rename when it changed, as a folder's does. A renamed
-   * folder and its subfolders stay expanded: their node ids follow the paths.
+   * Ends renaming; `renamedFolderPath` is the new path of a folder that was renamed. A renamed folder and its
+   * subfolders stay expanded: their node ids follow the paths.
    */
-  const finishRename = (byKeyboard: boolean, renamedNodeId?: string) => {
+  const finishRename = (byKeyboard: boolean, renamedFolderPath?: string) => {
     const { mode: current } = store.getState();
-    const renamingId = current.kind === 'renaming' ? current.nodeId : undefined;
-    if (renamingId !== undefined && renamedNodeId !== undefined && isFolderId(renamingId)) {
-      actions.folderRenamed(toFolderPath(renamingId), toFolderPath(renamedNodeId));
+    const renamed = current.kind === 'renaming' ? current.node : undefined;
+    if (renamed?.kind === 'folder' && renamedFolderPath !== undefined) {
+      actions.folderRenamed(renamed.path, renamedFolderPath);
     }
     actions.endMode('renaming');
-    const nodeId = renamedNodeId ?? renamingId;
+    const nodeId = renamedFolderPath === undefined ? renamed?.id : toFolderId(renamedFolderPath);
     if (byKeyboard && nodeId !== undefined) setFocusRequest({ target: 'node', nodeId });
   };
 
@@ -118,7 +113,7 @@ export const useExplorer = () => {
    */
   const folderRenamed = (fromPath: string, toPath: string) => {
     const { mode: current } = store.getState();
-    if (current.kind === 'renaming' && current.nodeId === toFolderId(fromPath)) return;
+    if (current.kind === 'renaming' && current.node.kind === 'folder' && current.node.path === fromPath) return;
     actions.folderRenamed(fromPath, toPath);
   };
 
@@ -136,22 +131,19 @@ export const useExplorer = () => {
 
   /**
    * Asks to delete a node. The confirmation names its full path, so that the user can tell entries of the same name
-   * in different folders apart. The path is taken now: a file of the tree is one of the files, while during the
-   * deletion it may already be gone from them.
+   * in different folders apart.
    */
   const requestDelete = (node: ExplorerFile) => {
-    const path = node.children ? toFolderPath(node.id) : files.find((file) => file.id === node.id)!.path;
-    actions.requestDelete(node, path);
+    actions.requestDelete(node, node.path);
   };
 
   /** Deletes the node from the storage, and leaves the editor when the open file is deleted with it */
   const deleteNode = async (node: ExplorerFile) => {
     const openPath = files.find((file) => file.id === selectedId)?.path;
     let deletesOpenFile;
-    if (node.children) {
-      const folderPath = toFolderPath(node.id);
-      await deleteFolder(folderPath);
-      deletesOpenFile = !!openPath?.startsWith(`${folderPath}/`);
+    if (node.kind === 'folder') {
+      await deleteFolder(node.path);
+      deletesOpenFile = !!openPath?.startsWith(`${node.path}/`);
     } else {
       await deleteFile(node.id);
       deletesOpenFile = node.id === selectedId;
@@ -159,7 +151,7 @@ export const useExplorer = () => {
     if (deletesOpenFile) void navigate('/workspace');
   };
 
-  const renamingId = mode.kind === 'renaming' ? mode.nodeId : undefined;
+  const renamed = mode.kind === 'renaming' ? mode.node : undefined;
 
   return {
     store,
@@ -178,9 +170,9 @@ export const useExplorer = () => {
     focusRequest,
     newEntry,
     /** The file being renamed */
-    renaming: renamingId ? files.find((file) => file.id === renamingId) : undefined,
+    renaming: renamed?.kind === 'file' ? files.find((file) => file.id === renamed.id) : undefined,
     /** The path of the folder being renamed */
-    renamingFolder: renamingId && isFolderId(renamingId) ? toFolderPath(renamingId) : undefined,
+    renamingFolder: renamed?.kind === 'folder' ? renamed.path : undefined,
     setSearchText: actions.setSearchText,
     toggleFolder: actions.toggleFolder,
     setLastFocusedNode: actions.setLastFocusedNode,

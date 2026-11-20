@@ -2,9 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EntryLabel } from './EntryLabel';
 import { ExplorerFile } from './model/explorer-file';
+import { fileNode, folderNode } from './model/explorer-test-nodes';
 
-const FILE: ExplorerFile = { id: 'main-flow', name: 'Main-Flow.camel.yaml', type: 'integration' };
-const FOLDER: ExplorerFile = { id: 'folder:integrations', name: 'integrations', type: 'folder', children: [] };
+const FILE = fileNode('main-flow', 'integrations/Main-Flow.camel.yaml');
+const FOLDER = folderNode('integrations');
 
 describe('EntryLabel', () => {
   const requestDelete = vi.fn();
@@ -63,7 +64,7 @@ describe('EntryLabel', () => {
     fireEvent.click(screen.getByTestId('explorer-rename-main-flow'));
     fireEvent.click(screen.getByTestId('explorer-delete-main-flow'));
 
-    expect(requestRename).toHaveBeenCalledWith('main-flow');
+    expect(requestRename).toHaveBeenCalledWith(FILE);
     expect(requestDelete).toHaveBeenCalledWith(FILE);
   });
 });

@@ -4,7 +4,6 @@ import { ComponentProps, FunctionComponent, KeyboardEvent as ReactKeyboardEvent,
 
 import { EntryLabel } from './EntryLabel';
 import { useExplorerContext } from './ExplorerContext';
-import { toFolderId, toFolderPath } from './model/build-tree';
 import { ExplorerFile } from './model/explorer-file';
 import { getNodeKey, NEW_ENTRY_ID } from './model/explorer-tree';
 import { NewEntryField } from './NewEntryField';
@@ -64,23 +63,19 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
     } else if (event.key === 'F2') {
       event.stopPropagation();
       event.preventDefault();
-      explorer.startRename(node.id);
+      explorer.startRename(node);
     }
   };
 
   let label: ReactNode;
   if (explorer.renaming?.id === node.id) {
     label = <RenameField file={explorer.renaming} onDone={explorer.finishRename} />;
-  } else if (
-    explorer.renamingFolder !== undefined &&
-    node.children &&
-    toFolderPath(node.id) === explorer.renamingFolder
-  ) {
+  } else if (explorer.renamingFolder !== undefined && node.kind === 'folder' && node.path === explorer.renamingFolder) {
     label = (
       <RenameFolderField
         folderPath={explorer.renamingFolder}
         onDone={(byKeyboard, renamedPath) => {
-          explorer.finishRename(byKeyboard, renamedPath === undefined ? undefined : toFolderId(renamedPath));
+          explorer.finishRename(byKeyboard, renamedPath);
         }}
         onRenamed={explorer.folderRenamed}
       />
@@ -96,7 +91,7 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
     );
   }
 
-  if (node.children) {
+  if (node.kind === 'folder') {
     // A search shows what it found, also in collapsed folders
     const isExpanded = explorer.query ? true : !!explorer.expandedFolders[node.id];
     return (
@@ -114,7 +109,7 @@ export const ExplorerNode: FunctionComponent<ExplorerNodeProps> = ({ node, ...pa
         }
         onKeyDown={handleKeyDown}
         aria-keyshortcuts={KEY_SHORTCUTS}
-        data-testid={`explorer-folder-${toFolderPath(node.id)}`}
+        data-testid={`explorer-folder-${node.path}`}
       >
         {node.children.map((child) => (
           <ExplorerNode key={getNodeKey(child, newEntry?.key)} node={child} />

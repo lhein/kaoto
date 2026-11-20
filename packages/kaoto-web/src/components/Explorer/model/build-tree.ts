@@ -22,7 +22,7 @@ const sortNodes = (nodes: ExplorerFile[]): ExplorerFile[] => {
   const folders: ExplorerFile[] = [];
   const files: ExplorerFile[] = [];
   for (const node of nodes) {
-    if (node.children) {
+    if (node.kind === 'folder') {
       folders.push({ ...node, children: sortNodes(node.children) });
     } else {
       files.push(node);
@@ -51,7 +51,14 @@ export function buildTree(files: Pick<StoredFile, 'id' | 'path'>[], folders: str
       if (!children) {
         children = [];
         folderChildren.set(folderPath, children);
-        siblings.push({ id: toFolderId(folderPath), name: segment, type: 'folder', children });
+        siblings.push({
+          kind: 'folder',
+          id: toFolderId(folderPath),
+          name: segment,
+          path: folderPath,
+          type: 'folder',
+          children,
+        });
       }
       siblings = children;
     }
@@ -61,7 +68,13 @@ export function buildTree(files: Pick<StoredFile, 'id' | 'path'>[], folders: str
   for (const file of files) {
     const segments = file.path.split('/');
     const fileName = segments[segments.length - 1];
-    childrenOf(segments.slice(0, -1)).push({ id: file.id, name: fileName, type: getFileType(file.path) });
+    childrenOf(segments.slice(0, -1)).push({
+      kind: 'file',
+      id: file.id,
+      name: fileName,
+      path: file.path,
+      type: getFileType(file.path),
+    });
   }
   for (const folderPath of folders) {
     childrenOf(folderPath.split('/'));

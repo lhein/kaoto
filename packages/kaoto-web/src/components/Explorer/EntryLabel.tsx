@@ -8,7 +8,7 @@ interface EntryLabelProps {
   node: ExplorerFile;
   query: string;
   requestDelete: (node: ExplorerFile) => void;
-  requestRename: (nodeId: string) => void;
+  requestRename: (node: ExplorerFile) => void;
 }
 
 /** Wrap the matching substring in a <mark> for visual highlighting. */
@@ -40,15 +40,15 @@ export const EntryLabel: FunctionComponent<EntryLabelProps> = ({ node, query, re
     {highlightMatch(node.name, query)}
     <span className="cs--explorer__node-actions" aria-hidden="true">
       <EntryActionButton
-        label={node.children ? 'Rename folder' : 'Rename file'}
+        label={node.kind === 'folder' ? 'Rename folder' : 'Rename file'}
         testId={`explorer-rename-${node.id}`}
         icon={Edit}
         onClick={() => {
-          requestRename(node.id);
+          requestRename(node);
         }}
       />
       <EntryActionButton
-        label={node.children ? 'Delete folder' : 'Delete file'}
+        label={node.kind === 'folder' ? 'Delete folder' : 'Delete file'}
         testId={`explorer-delete-${node.id}`}
         icon={TrashCan}
         onClick={() => {

@@ -3,6 +3,7 @@ import { toFolderId } from '../build-tree';
 import { ExplorerFile } from '../explorer-file';
 import {
   expandWithParents,
+  getNodeKey,
   insertNewEntry,
   isFolderId,
   NEW_ENTRY_ID,
@@ -137,5 +138,17 @@ describe('targetFolderPath', () => {
     ['the root when the open file is not among the files', undefined, 'unknown', ''],
   ])('is %s', (_, lastFocused, selectedId, expected) => {
     expect(targetFolderPath({ lastFocused, selectedId, files, folders })).toBe(expected);
+  });
+});
+
+describe('getNodeKey', () => {
+  it('is the id of a stored node', () => {
+    expect(getNodeKey(file('a', 'a.camel.yaml'), 3)).toBe('a');
+  });
+
+  it('changes with every start of a new entry', () => {
+    const newEntry: ExplorerFile = { id: NEW_ENTRY_ID, name: '', type: 'document' };
+
+    expect(getNodeKey(newEntry, 1)).not.toBe(getNodeKey(newEntry, 2));
   });
 });

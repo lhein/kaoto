@@ -13,6 +13,10 @@ export const NEW_ENTRY_ID = 'new-entry:';
 /** Stands for the root in the last focused tree item, after a click on the free space of the tree */
 export const ROOT_TARGET = 'root:';
 
+/** The key of a tree row: the node id, and for the new entry also its start, so that every start mounts a new field */
+export const getNodeKey = (node: ExplorerFile, newEntryKey: number | undefined): string =>
+  node.id === NEW_ENTRY_ID ? `${NEW_ENTRY_ID}${newEntryKey ?? ''}` : node.id;
+
 /** Where a new file or folder is being created */
 export interface NewEntryPlacement {
   kind: 'file' | 'folder';

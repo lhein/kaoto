@@ -43,6 +43,8 @@ const IntegrationShell: FunctionComponent = () => {
   const [saveError, setSaveError] = useState<{ key: string; error: Error }>();
   /** The content last written for a file; the shown content stays the one read when the file opened */
   const [stored, setStored] = useState<{ key: string; content: string }>();
+  /** SPIKE: the element in the EditorHeader that the canvas toolbar is rendered into */
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
 
   // Reset view mode to Design when opening a different file — not when the files change or the file moves.
   const openKey = openFile?.key;
@@ -93,7 +95,7 @@ const IntegrationShell: FunctionComponent = () => {
   if (shown && editorKind === 'text') {
     body = <TextFileEditor key={shown.key} file={shown} onSave={storeCode} />;
   } else if (shown && editorKind) {
-    body = <RouteFileEditor file={shown} view={viewMode} onSave={storeCode} />;
+    body = <RouteFileEditor file={shown} view={viewMode} onSave={storeCode} toolbarContainer={toolbarSlot} />;
   } else if (readError) {
     body = <p className="cs--integration-shell__empty">{`The file could not be read (${readError.message})`}</p>;
   } else if (status !== 'loading' && !openFile) {
@@ -109,6 +111,7 @@ const IntegrationShell: FunctionComponent = () => {
           icon={viewIconFor(editorKind, viewMode)}
           path={shown.path}
           content={stored?.key === shown.key ? stored.content : shown.content}
+          toolbarSlotRef={editorKind === 'text' ? undefined : setToolbarSlot}
         />
       )}
       {currentSaveError && (

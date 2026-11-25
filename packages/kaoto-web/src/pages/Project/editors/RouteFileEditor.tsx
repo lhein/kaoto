@@ -11,6 +11,8 @@ interface RouteFileEditorProps {
   file: OpenFile;
   view: ViewMode;
   onSave: (key: string, code: string) => void;
+  /** SPIKE: where the canvas toolbar shows up, e.g. in the EditorHeader */
+  toolbarContainer?: HTMLElement | null;
 }
 
 /** The code of a route and the file it belongs to, so that a late save of one file cannot land in another */
@@ -47,7 +49,7 @@ const RouteCodeView: FunctionComponent<{
  * providers inside RouteVisualization and download the whole Camel catalog again. Both views share the code of the
  * open file; edits from either side are saved.
  */
-export const RouteFileEditor: FunctionComponent<RouteFileEditorProps> = ({ file, view, onSave }) => {
+export const RouteFileEditor: FunctionComponent<RouteFileEditorProps> = ({ file, view, onSave, toolbarContainer }) => {
   const [routeCode, setRouteCode] = useState<RouteCode>({ key: file.key, code: file.content });
   if (routeCode.key !== file.key) {
     // Adjust state while rendering (https://react.dev/learn/you-might-not-need-an-effect)
@@ -78,6 +80,7 @@ export const RouteFileEditor: FunctionComponent<RouteFileEditorProps> = ({ file,
           testingCatalogName=""
           code={code}
           codeChange={handleCanvasChange}
+          toolbarContainer={view === 'design' ? toolbarContainer : null}
         />
       </div>
       {view === 'code' && <RouteCodeView key={file.key} file={file} initialCode={code} onCommit={handleCodeCommit} />}

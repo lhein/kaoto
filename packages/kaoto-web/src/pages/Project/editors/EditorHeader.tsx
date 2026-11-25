@@ -14,6 +14,8 @@ interface EditorHeaderProps {
   path: string;
   /** Content of the open file, which the header copies to the clipboard */
   content: string;
+  /** SPIKE: receives the element the canvas toolbar is rendered into */
+  toolbarSlotRef?: (element: HTMLDivElement | null) => void;
 }
 
 const fileNameOf = (path: string): string => path.split('/').pop() ?? path;
@@ -23,7 +25,7 @@ const fileNameOf = (path: string): string => path.split('/').pop() ?? path;
  * on the right undo and redo followed by the tools for the file (copy to the clipboard), as in the toolbar of the
  * Kaoto editor
  */
-export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({ icon: Icon, path, content }) => {
+export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({ icon: Icon, path, content, toolbarSlotRef }) => {
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
 
   return (
@@ -42,6 +44,9 @@ export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({ icon: Icon,
         <div className="cs--editor-header__group">
           <CopyFileButton content={content} />
         </div>
+        {toolbarSlotRef && (
+          <div ref={toolbarSlotRef} className="cs--editor-header__group cs--editor-header__canvas-tools" />
+        )}
       </div>
     </div>
   );

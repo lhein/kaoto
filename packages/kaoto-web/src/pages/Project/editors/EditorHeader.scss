@@ -38,3 +38,17 @@
   display: flex;
   gap: $spacing-01;
 }
+
+// SPIKE: the canvas toolbar from RouteVisualization, rendered here through a portal
+.cs--editor-header__canvas-tools {
+  &:empty {
+    display: none;
+  }
+
+  .pf-v6-c-toolbar,
+  .pf-v6-c-toolbar__content {
+    padding: 0;
+    background: transparent;
+    min-block-size: 0;
+  }
+}

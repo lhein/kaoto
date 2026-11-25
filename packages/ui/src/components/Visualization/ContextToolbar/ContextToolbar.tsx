@@ -16,9 +16,11 @@ import { NewEntity } from './NewEntity/NewEntity';
 import { SelectedRuntime } from './SelectedRuntime/SelectedRuntime';
 interface ContextToolbarProps {
   isSimplified?: boolean;
+  /** SPIKE: leaves out undo/redo and copy, which a host already shows in its own header */
+  hideHostTools?: boolean;
 }
 
-export const ContextToolbar: FunctionComponent<ContextToolbarProps> = ({ isSimplified }) => {
+export const ContextToolbar: FunctionComponent<ContextToolbarProps> = ({ isSimplified, hideHostTools }) => {
   const { currentSchemaType } = useEntityContext();
   const isMultipleRoutes = sourceSchemaConfig.config[currentSchemaType].multipleRoute;
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
@@ -42,21 +44,25 @@ export const ContextToolbar: FunctionComponent<ContextToolbarProps> = ({ isSimpl
           </ToolbarItem>
         )}
 
-        <ToolbarItem key="toolbar-undo">
-          <Button aria-label="Undo" title="Undo" variant="plain" isDisabled={!canUndo} onClick={undo}>
-            <Undo />
-          </Button>
-        </ToolbarItem>
+        {!hideHostTools && (
+          <>
+            <ToolbarItem key="toolbar-undo">
+              <Button aria-label="Undo" title="Undo" variant="plain" isDisabled={!canUndo} onClick={undo}>
+                <Undo />
+              </Button>
+            </ToolbarItem>
 
-        <ToolbarItem key="toolbar-redo">
-          <Button aria-label="Redo" title="Redo" variant="plain" isDisabled={!canRedo} onClick={redo}>
-            <Redo />
-          </Button>
-        </ToolbarItem>
+            <ToolbarItem key="toolbar-redo">
+              <Button aria-label="Redo" title="Redo" variant="plain" isDisabled={!canRedo} onClick={redo}>
+                <Redo />
+              </Button>
+            </ToolbarItem>
 
-        <ToolbarItem key="toolbar-clipboard">
-          <FlowClipboard />
-        </ToolbarItem>
+            <ToolbarItem key="toolbar-clipboard">
+              <FlowClipboard />
+            </ToolbarItem>
+          </>
+        )}
 
         <ToolbarItem key="toolbar-export-image">
           <FlowExportImage />

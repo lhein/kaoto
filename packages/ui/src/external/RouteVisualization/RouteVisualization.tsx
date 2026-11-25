@@ -4,6 +4,7 @@ import '../../styles/patternfly-carbon-compat.scss';
 import { SuggestionRegistryProvider } from '@kaoto/forms';
 import { VisualizationProvider } from '@patternfly/react-topology';
 import { FunctionComponent, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import { NodeInteractionAddonProvider } from '../../components/registers/interactions/node-interaction-addon.provider';
 import {
@@ -15,6 +16,7 @@ import { RegisterNodeInteractionAddons } from '../../components/registers/Regist
 import { RenderingProvider } from '../../components/RenderingAnchor/rendering.provider';
 import { DesignerVisualization } from '../../components/Visualization';
 import { ControllerService } from '../../components/Visualization/Canvas/controller.service';
+import { ContextToolbar } from '../../components/Visualization/ContextToolbar/ContextToolbar';
 import { CatalogLoaderProvider } from '../../dynamic-catalog/catalog.provider';
 import { CatalogModalProvider } from '../../dynamic-catalog/catalog-modal.provider';
 import { CatalogTilesProvider } from '../../dynamic-catalog/catalog-tiles.provider';
@@ -57,7 +59,8 @@ const Viz: FunctionComponent<{
   runtimeCatalogName: string;
   testingCatalogName: string;
   className?: string;
-}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, className = '' }) => {
+  toolbarContainer?: HTMLElement | null;
+}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, className = '', toolbarContainer }) => {
   const controller = useMemo(() => ControllerService.createController(), []);
 
   return (
@@ -87,6 +90,9 @@ const Viz: FunctionComponent<{
                                   {/* Asks before deleting a step with children, a route or a group */}
                                   <ActionConfirmationModalContextProvider>
                                     <VisibleFlowsVisualization className={className} />
+                                    {/* SPIKE: the portal keeps the contexts above, so the tools work in the host's header */}
+                                    {toolbarContainer &&
+                                      createPortal(<ContextToolbar isSimplified hideHostTools />, toolbarContainer)}
                                   </ActionConfirmationModalContextProvider>
                                 </CatalogModalProvider>
                               </SuggestionRegistryProvider>
@@ -113,7 +119,9 @@ export const RouteVisualization: FunctionComponent<{
   code: string;
   codeChange: (code: string) => void;
   className?: string;
-}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, code, codeChange, className }) => {
+  /** SPIKE: an element of the host, e.g. in its header, that shows the canvas toolbar */
+  toolbarContainer?: HTMLElement | null;
+}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, code, codeChange, className, toolbarContainer }) => {
   const eventNotifier = EventNotifier.getInstance();
   /** The code the entities currently represent, either parsed from `code` or serialized from a canvas edit */
   const entitiesCodeRef = useRef<string | undefined>(undefined);
@@ -140,6 +148,7 @@ export const RouteVisualization: FunctionComponent<{
       runtimeCatalogName={runtimeCatalogName}
       testingCatalogName={testingCatalogName}
       className={className}
+      toolbarContainer={toolbarContainer}
     />
   );
 };

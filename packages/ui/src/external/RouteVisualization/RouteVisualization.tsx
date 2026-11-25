@@ -4,7 +4,6 @@ import '../../styles/patternfly-carbon-compat.scss';
 import { SuggestionRegistryProvider } from '@kaoto/forms';
 import { VisualizationProvider } from '@patternfly/react-topology';
 import { FunctionComponent, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
 
 import { NodeInteractionAddonProvider } from '../../components/registers/interactions/node-interaction-addon.provider';
 import {
@@ -16,7 +15,6 @@ import { RegisterNodeInteractionAddons } from '../../components/registers/Regist
 import { RenderingProvider } from '../../components/RenderingAnchor/rendering.provider';
 import { DesignerVisualization } from '../../components/Visualization';
 import { ControllerService } from '../../components/Visualization/Canvas/controller.service';
-import { ContextToolbar } from '../../components/Visualization/ContextToolbar/ContextToolbar';
 import { CatalogLoaderProvider } from '../../dynamic-catalog/catalog.provider';
 import { CatalogModalProvider } from '../../dynamic-catalog/catalog-modal.provider';
 import { CatalogTilesProvider } from '../../dynamic-catalog/catalog-tiles.provider';
@@ -32,6 +30,9 @@ import {
 } from '../../providers';
 import { ActionConfirmationModalContextProvider } from '../../providers/action-confirmation-modal.provider';
 import { EventNotifier } from '../../utils';
+import { CanvasToolsPortal, RenderCanvasTools } from './CanvasTools';
+
+export type { CanvasNewEntity, CanvasRoute, CanvasTools, RenderCanvasTools } from './CanvasTools';
 
 /**
  * The DataMapper launcher is left out: it navigates to the DataMapper page of the Kaoto web app, which the hosts of
@@ -60,7 +61,8 @@ const Viz: FunctionComponent<{
   testingCatalogName: string;
   className?: string;
   toolbarContainer?: HTMLElement | null;
-}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, className = '', toolbarContainer }) => {
+  renderToolbar?: RenderCanvasTools;
+}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, className = '', toolbarContainer, renderToolbar }) => {
   const controller = useMemo(() => ControllerService.createController(), []);
 
   return (
@@ -90,9 +92,10 @@ const Viz: FunctionComponent<{
                                   {/* Asks before deleting a step with children, a route or a group */}
                                   <ActionConfirmationModalContextProvider>
                                     <VisibleFlowsVisualization className={className} />
-                                    {/* SPIKE: the portal keeps the contexts above, so the tools work in the host's header */}
-                                    {toolbarContainer &&
-                                      createPortal(<ContextToolbar isSimplified />, toolbarContainer)}
+                                    {/* SPIKE: the host draws the toolbar; the portal keeps the contexts above for its actions */}
+                                    {toolbarContainer && renderToolbar && (
+                                      <CanvasToolsPortal container={toolbarContainer} render={renderToolbar} />
+                                    )}
                                   </ActionConfirmationModalContextProvider>
                                 </CatalogModalProvider>
                               </SuggestionRegistryProvider>
@@ -121,7 +124,18 @@ export const RouteVisualization: FunctionComponent<{
   className?: string;
   /** SPIKE: an element of the host, e.g. in its header, that shows the canvas toolbar */
   toolbarContainer?: HTMLElement | null;
-}> = ({ catalogUrl, runtimeCatalogName, testingCatalogName, code, codeChange, className, toolbarContainer }) => {
+  /** SPIKE: draws the toolbar from the state and actions of the canvas, into `toolbarContainer` */
+  renderToolbar?: RenderCanvasTools;
+}> = ({
+  catalogUrl,
+  runtimeCatalogName,
+  testingCatalogName,
+  code,
+  codeChange,
+  className,
+  toolbarContainer,
+  renderToolbar,
+}) => {
   const eventNotifier = EventNotifier.getInstance();
   /** The code the entities currently represent, either parsed from `code` or serialized from a canvas edit */
   const entitiesCodeRef = useRef<string | undefined>(undefined);
@@ -149,6 +163,7 @@ export const RouteVisualization: FunctionComponent<{
       testingCatalogName={testingCatalogName}
       className={className}
       toolbarContainer={toolbarContainer}
+      renderToolbar={renderToolbar}
     />
   );
 };

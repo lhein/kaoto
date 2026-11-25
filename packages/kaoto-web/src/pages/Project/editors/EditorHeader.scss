@@ -39,16 +39,12 @@
   gap: $spacing-01;
 }
 
-// SPIKE: the canvas toolbar from RouteVisualization, rendered here through a portal
+// SPIKE: the Carbon canvas toolbar, rendered here through a portal; its groups sit apart like the others
 .cs--editor-header__canvas-tools {
+  display: flex;
+  gap: $spacing-04;
+
   &:empty {
     display: none;
-  }
-
-  .pf-v6-c-toolbar,
-  .pf-v6-c-toolbar__content {
-    padding: 0;
-    background: transparent;
-    min-block-size: 0;
   }
 }

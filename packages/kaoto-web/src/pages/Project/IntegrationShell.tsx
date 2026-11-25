@@ -12,6 +12,7 @@ import { useActiveFile } from '../../hooks/useActiveFile';
 import { getFileType } from '../../services/files/stored-file';
 import { useFilesUiStore, useFilesUiStoreApi } from '../../store/files/use-files-ui-store';
 import { editorKindFor } from './editors/editor-registry';
+import { CanvasToolbar } from './editors/CanvasToolbar';
 import { EditorHeader } from './editors/EditorHeader';
 import { RouteFileEditor } from './editors/RouteFileEditor';
 import { TextFileEditor } from './editors/TextFileEditor';
@@ -95,7 +96,16 @@ const IntegrationShell: FunctionComponent = () => {
   if (shown && editorKind === 'text') {
     body = <TextFileEditor key={shown.key} file={shown} onSave={storeCode} />;
   } else if (shown && editorKind) {
-    body = <RouteFileEditor file={shown} view={viewMode} onSave={storeCode} toolbarContainer={toolbarSlot} />;
+    const shownContent = stored?.key === shown.key ? stored.content : shown.content;
+    body = (
+      <RouteFileEditor
+        file={shown}
+        view={viewMode}
+        onSave={storeCode}
+        toolbarContainer={toolbarSlot}
+        renderToolbar={(tools) => <CanvasToolbar tools={tools} content={shownContent} />}
+      />
+    );
   } else if (readError) {
     body = <p className="cs--integration-shell__empty">{`The file could not be read (${readError.message})`}</p>;
   } else if (status !== 'loading' && !openFile) {
@@ -112,7 +122,7 @@ const IntegrationShell: FunctionComponent = () => {
           path={shown.path}
           content={stored?.key === shown.key ? stored.content : shown.content}
           toolbarSlotRef={editorKind === 'text' ? undefined : setToolbarSlot}
-          hideOwnTools={editorKind !== 'text' && viewMode === 'design'}
+          hideCopy={editorKind !== 'text' && viewMode === 'design'}
         />
       )}
       {currentSaveError && (

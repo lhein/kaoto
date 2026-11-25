@@ -16,8 +16,8 @@ interface EditorHeaderProps {
   content: string;
   /** SPIKE: receives the element the canvas toolbar is rendered into */
   toolbarSlotRef?: (element: HTMLDivElement | null) => void;
-  /** SPIKE: the canvas toolbar brings its own undo, redo and copy, so the header leaves out its own */
-  hideOwnTools?: boolean;
+  /** SPIKE: the canvas toolbar shows the copy button between its tools, so the header leaves out its own */
+  hideCopy?: boolean;
 }
 
 const fileNameOf = (path: string): string => path.split('/').pop() ?? path;
@@ -32,7 +32,7 @@ export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({
   path,
   content,
   toolbarSlotRef,
-  hideOwnTools,
+  hideCopy,
 }) => {
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
 
@@ -41,23 +41,19 @@ export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({
       <Icon className="cs--editor-header__icon" aria-hidden="true" />
       <h2 className="cs--editor-header__title">{fileNameOf(path)}</h2>
       <div className="cs--editor-header__actions">
-        {!hideOwnTools && (
-          <>
-            <div className="cs--editor-header__group">
-              <IconButton label="Undo" disabled={!canUndo} onClick={undo} kind="ghost" size="sm">
-                <Undo />
-              </IconButton>
-              <IconButton label="Redo" disabled={!canRedo} onClick={redo} kind="ghost" size="sm">
-                <Redo />
-              </IconButton>
-            </div>
-            <div className="cs--editor-header__group">
-              <CopyFileButton content={content} />
-            </div>
-          </>
-        )}
-        {toolbarSlotRef && (
-          <div ref={toolbarSlotRef} className="cs--editor-header__group cs--editor-header__canvas-tools" />
+        <div className="cs--editor-header__group">
+          <IconButton label="Undo" disabled={!canUndo} onClick={undo} kind="ghost" size="sm">
+            <Undo />
+          </IconButton>
+          <IconButton label="Redo" disabled={!canRedo} onClick={redo} kind="ghost" size="sm">
+            <Redo />
+          </IconButton>
+        </div>
+        {toolbarSlotRef && <div ref={toolbarSlotRef} className="cs--editor-header__canvas-tools" />}
+        {!hideCopy && (
+          <div className="cs--editor-header__group">
+            <CopyFileButton content={content} />
+          </div>
         )}
       </div>
     </div>

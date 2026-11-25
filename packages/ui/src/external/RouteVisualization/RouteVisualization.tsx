@@ -92,7 +92,7 @@ const Viz: FunctionComponent<{
                                     <VisibleFlowsVisualization className={className} />
                                     {/* SPIKE: the portal keeps the contexts above, so the tools work in the host's header */}
                                     {toolbarContainer &&
-                                      createPortal(<ContextToolbar isSimplified hideHostTools />, toolbarContainer)}
+                                      createPortal(<ContextToolbar isSimplified />, toolbarContainer)}
                                   </ActionConfirmationModalContextProvider>
                                 </CatalogModalProvider>
                               </SuggestionRegistryProvider>

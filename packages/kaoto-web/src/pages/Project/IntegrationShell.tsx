@@ -112,6 +112,7 @@ const IntegrationShell: FunctionComponent = () => {
           path={shown.path}
           content={stored?.key === shown.key ? stored.content : shown.content}
           toolbarSlotRef={editorKind === 'text' ? undefined : setToolbarSlot}
+          hideOwnTools={editorKind !== 'text' && viewMode === 'design'}
         />
       )}
       {currentSaveError && (

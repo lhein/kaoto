@@ -16,6 +16,8 @@ interface EditorHeaderProps {
   content: string;
   /** SPIKE: receives the element the canvas toolbar is rendered into */
   toolbarSlotRef?: (element: HTMLDivElement | null) => void;
+  /** SPIKE: the canvas toolbar brings its own undo, redo and copy, so the header leaves out its own */
+  hideOwnTools?: boolean;
 }
 
 const fileNameOf = (path: string): string => path.split('/').pop() ?? path;
@@ -25,7 +27,13 @@ const fileNameOf = (path: string): string => path.split('/').pop() ?? path;
  * on the right undo and redo followed by the tools for the file (copy to the clipboard), as in the toolbar of the
  * Kaoto editor
  */
-export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({ icon: Icon, path, content, toolbarSlotRef }) => {
+export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({
+  icon: Icon,
+  path,
+  content,
+  toolbarSlotRef,
+  hideOwnTools,
+}) => {
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
 
   return (
@@ -33,17 +41,21 @@ export const EditorHeader: FunctionComponent<EditorHeaderProps> = ({ icon: Icon,
       <Icon className="cs--editor-header__icon" aria-hidden="true" />
       <h2 className="cs--editor-header__title">{fileNameOf(path)}</h2>
       <div className="cs--editor-header__actions">
-        <div className="cs--editor-header__group">
-          <IconButton label="Undo" disabled={!canUndo} onClick={undo} kind="ghost" size="sm">
-            <Undo />
-          </IconButton>
-          <IconButton label="Redo" disabled={!canRedo} onClick={redo} kind="ghost" size="sm">
-            <Redo />
-          </IconButton>
-        </div>
-        <div className="cs--editor-header__group">
-          <CopyFileButton content={content} />
-        </div>
+        {!hideOwnTools && (
+          <>
+            <div className="cs--editor-header__group">
+              <IconButton label="Undo" disabled={!canUndo} onClick={undo} kind="ghost" size="sm">
+                <Undo />
+              </IconButton>
+              <IconButton label="Redo" disabled={!canRedo} onClick={redo} kind="ghost" size="sm">
+                <Redo />
+              </IconButton>
+            </div>
+            <div className="cs--editor-header__group">
+              <CopyFileButton content={content} />
+            </div>
+          </>
+        )}
         {toolbarSlotRef && (
           <div ref={toolbarSlotRef} className="cs--editor-header__group cs--editor-header__canvas-tools" />
         )}
